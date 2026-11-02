@@ -89,6 +89,7 @@ pub async fn start_scan(
 }
 
 pub async fn list_scans(State(state): State<Arc<AppState>>) -> Json<ApiResponse<Vec<ScanInfo>>> {
+    state.cleanup_completed_scans().await;
     let mut scans = Vec::new();
 
     for scan_ref in state.scans.iter() {
@@ -97,7 +98,7 @@ pub async fn list_scans(State(state): State<Arc<AppState>>) -> Json<ApiResponse<
     }
 
     // Sort by creation time (newest first)
-    scans.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    scans.sort_by_key(|scan| std::cmp::Reverse(scan.created_at));
 
     Json(ApiResponse::success(scans))
 }

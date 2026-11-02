@@ -86,7 +86,7 @@ This Code of Conduct also applies when an individual is officially representing 
 
 If you experience or witness unacceptable behavior, please report it by:
 
-1. **Email**: Send details to [security@nullgrimoire.com](mailto:security@nullgrimoire.com)
+1. **Email**: Send details to [noah@weeksitsolutions.com](mailto:noah@weeksitsolutions.com)
 2. **GitHub Issues**: For non-sensitive matters, create a private issue
 3. **Direct Contact**: Contact project maintainers directly through GitHub
 
@@ -199,4 +199,4 @@ For answers to common questions about this code of conduct, see the FAQ at [http
 **Last Updated**: July 14, 2025
 **Version**: 1.6.0
 
-For questions about this Code of Conduct, please contact the project maintainers at [security@nullgrimoire.com](mailto:security@nullgrimoire.com).
+For questions about this Code of Conduct, please contact the project maintainers at [noah@weeksitsolutions.com](mailto:noah@weeksitsolutions.com).

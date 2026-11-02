@@ -6,9 +6,8 @@ We actively support the following versions of NullScan with security updates:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.5.x   | :white_check_mark: |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| 1.6.x   | :white_check_mark: |
+| < 1.6   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -18,7 +17,7 @@ We take security seriously. If you discover a security vulnerability in NullScan
 
 **Please do NOT create a public GitHub issue for security vulnerabilities.**
 
-Instead, please email us at: **null.grimoire.mage@gmail.com**
+Instead, please email **noah@weeksitsolutions.com**.
 
 Include the following information:
 - Description of the vulnerability
@@ -38,10 +37,11 @@ Include the following information:
 When using NullScan:
 
 1. **Permission**: Only scan systems you own or have explicit permission to test
-2. **Rate Limiting**: Use appropriate concurrency settings to avoid overwhelming targets
-3. **Network Isolation**: Run scans from isolated environments when possible
-4. **Log Security**: Secure scan results that may contain sensitive information
-5. **Updates**: Keep NullScan updated to the latest version
+2. **Dashboard token**: Treat the web dashboard bearer token like a password. Leave `--web-bind` at `127.0.0.1` unless the host is on a trusted network
+3. **Rate Limiting**: Use appropriate concurrency settings to avoid overwhelming targets
+4. **Network Isolation**: Run scans from isolated environments when possible
+5. **Log Security**: Secure scan results that may contain sensitive information
+6. **Updates**: Keep NullScan updated to the latest version
 
 ### Common Security Considerations
 

@@ -24,7 +24,6 @@ pub enum VulnSeverity {
 }
 
 impl VulnSeverity {
-    #[allow(dead_code)]
     pub fn to_color_code(&self) -> &'static str {
         match self {
             VulnSeverity::Critical => "🔴",
@@ -35,7 +34,7 @@ impl VulnSeverity {
         }
     }
 
-    pub fn to_string(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             VulnSeverity::Critical => "Critical",
             VulnSeverity::High => "High",
@@ -62,8 +61,6 @@ pub struct VulnDatabase {
 
 pub struct VulnChecker {
     database: VulnDatabase,
-    #[allow(dead_code)]
-    pattern_cache: HashMap<String, Vec<Vulnerability>>,
 }
 
 impl VulnChecker {
@@ -79,16 +76,7 @@ impl VulnChecker {
             database.version
         );
 
-        // Pre-compile patterns for faster matching
-        let mut pattern_cache = HashMap::new();
-        for pattern in &database.patterns {
-            pattern_cache.insert(pattern.pattern.clone(), pattern.vulnerabilities.clone());
-        }
-
-        Ok(VulnChecker {
-            database,
-            pattern_cache,
-        })
+        Ok(VulnChecker { database })
     }
 
     pub fn check_banner(&self, banner: &str) -> Vec<Vulnerability> {
@@ -183,7 +171,7 @@ impl VulnChecker {
         for pattern in &self.database.patterns {
             for vuln in &pattern.vulnerabilities {
                 *severity_counts
-                    .entry(vuln.severity.to_string().to_owned())
+                    .entry(vuln.severity.as_str().to_owned())
                     .or_insert(0) += 1;
             }
         }
@@ -199,7 +187,6 @@ impl VulnChecker {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct VulnDbStats {
     pub total_patterns: usize,
     pub total_vulnerabilities: usize,
@@ -208,8 +195,8 @@ pub struct VulnDbStats {
     pub last_updated: String,
 }
 
-#[allow(dead_code)]
-pub fn create_sample_database() -> VulnDatabase {
+#[cfg(test)]
+fn create_sample_database() -> VulnDatabase {
     VulnDatabase {
         version: "1.6.0".to_string(),
         last_updated: "2025-07-13".to_string(),
@@ -311,7 +298,6 @@ mod tests {
         let sample_db = create_sample_database();
         let checker = VulnChecker {
             database: sample_db,
-            pattern_cache: HashMap::new(),
         };
 
         let vulns = checker.check_banner("OpenSSH 7.4p1 Ubuntu-10+deb9u7");
@@ -324,7 +310,6 @@ mod tests {
         let sample_db = create_sample_database();
         let checker = VulnChecker {
             database: sample_db,
-            pattern_cache: HashMap::new(),
         };
 
         let vulns = checker.check_banner("OpenSSH 9.0 (completely secure version)");
@@ -333,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_severity_ordering() {
-        let mut vulns = vec![
+        let mut vulns = [
             Vulnerability {
                 cve: "CVE-2021-1".to_string(),
                 description: "Test".to_string(),
@@ -364,5 +349,78 @@ mod tests {
         });
 
         assert_eq!(vulns[0].cve, "CVE-2021-2"); // Critical should be first
+    }
+
+    fn db_path() -> String {
+        format!("{}/vuln_db.json", env!("CARGO_MANIFEST_DIR"))
+    }
+
+    #[test]
+    fn matches_patterns_from_vuln_db_file() {
+        let checker = VulnChecker::load_from_file(&db_path()).expect("vuln_db.json");
+        let stats = checker.get_stats();
+        assert!(stats.total_patterns > 0);
+        assert!(stats.total_vulnerabilities > 0);
+        assert!(!stats.version.is_empty());
+        assert!(stats.severity_counts.values().sum::<usize>() > 0);
+
+        let openssh = checker.check_banner("SSH-2.0-OpenSSH_7.4");
+        assert!(
+            openssh.iter().any(|v| v.cve == "CVE-2018-15473"),
+            "expected CVE-2018-15473, got {openssh:?}"
+        );
+
+        let apache = checker.check_banner("Apache/2.4.29 (Unix)");
+        assert!(apache.iter().any(|v| v.cve == "CVE-2018-1312"));
+        assert!(apache.iter().any(|v| v.severity.as_str() == "Medium"));
+
+        let nginx = checker.check_banner("nginx 1.18.0");
+        assert!(nginx.iter().any(|v| v.cve == "CVE-2021-23017"));
+        assert!(nginx.iter().any(|v| v.severity.as_str() == "High"));
+
+        let none = checker.check_banner("completely-unknown-banner-xyz");
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn regex_and_version_patterns_order_by_severity() {
+        let checker = VulnChecker {
+            database: VulnDatabase {
+                version: "test".to_string(),
+                last_updated: "n/a".to_string(),
+                patterns: vec![
+                    ServicePattern {
+                        pattern: r"regex:openssl/1\.0\.[0-2]".to_string(),
+                        service_type: "TLS".to_string(),
+                        vulnerabilities: vec![Vulnerability {
+                            cve: "CVE-TEST-REGEX".to_string(),
+                            description: "regex pattern".to_string(),
+                            severity: VulnSeverity::Low,
+                            cvss_score: None,
+                            published: None,
+                            references: vec![],
+                        }],
+                    },
+                    ServicePattern {
+                        pattern: "version:1.0.2".to_string(),
+                        service_type: "TLS".to_string(),
+                        vulnerabilities: vec![Vulnerability {
+                            cve: "CVE-TEST-VER".to_string(),
+                            description: "version pattern".to_string(),
+                            severity: VulnSeverity::Critical,
+                            cvss_score: Some(9.0),
+                            published: None,
+                            references: vec![],
+                        }],
+                    },
+                ],
+            },
+        };
+
+        let vulns = checker.check_banner("OpenSSL/1.0.2k");
+        assert_eq!(vulns.len(), 2);
+        assert_eq!(vulns[0].cve, "CVE-TEST-VER");
+        assert_eq!(vulns[1].cve, "CVE-TEST-REGEX");
+        assert_eq!(vulns[0].severity.to_color_code(), "🔴");
     }
 }

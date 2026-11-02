@@ -479,3 +479,64 @@ fn get_probe_for_port(port: u16) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::{TcpListener, TcpStream};
+
+    async fn serve_once<F>(handler: F) -> u16
+    where
+        F: FnOnce(TcpStream) + Send + 'static,
+    {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            if let Ok((sock, _)) = listener.accept().await {
+                handler(sock);
+            }
+        });
+        port
+    }
+
+    #[tokio::test]
+    async fn detects_ssh_banner_on_localhost() {
+        let port = serve_once(|mut sock| {
+            tokio::spawn(async move {
+                let _ = sock.write_all(b"SSH-2.0-OpenSSH_8.4p1\r\n").await;
+            });
+        })
+        .await;
+
+        let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+            .await
+            .unwrap();
+        let banner = BannerGrabber::new().grab_banner(stream, 22).await.unwrap();
+        assert!(banner.starts_with("SSH - SSH-2.0-OpenSSH_8.4"));
+    }
+
+    #[tokio::test]
+    async fn detects_http_server_header_on_localhost() {
+        let port = serve_once(|mut sock| {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 512];
+                let _ = sock.read(&mut buf).await;
+                let _ = sock
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nServer: nginx/1.18.0\r\nContent-Length: 0\r\n\r\n",
+                    )
+                    .await;
+            });
+        })
+        .await;
+
+        let stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+            .await
+            .unwrap();
+        let banner = BannerGrabber::new().grab_banner(stream, 80).await.unwrap();
+        assert!(banner.contains("HTTP/1.1 200 OK"), "{banner}");
+        assert!(banner.to_lowercase().contains("nginx/1.18.0"), "{banner}");
+    }
+}

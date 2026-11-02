@@ -1,14 +1,17 @@
 # 🔍 NullScan
 
-[![Tests](https://github.com/Nullgrimoire/NullScan/actions/workflows/test.yml/badge.svg)](https://github.com/Nullgrimoire/NullScan/actions/workflows/test.yml)
-[![Release](https://github.com/Nullgrimoire/NullScan/actions/workflows/release.yml/badge.svg)](https://github.com/Nullgrimoire/NullScan/actions/workflows/release.yml)
+[![Tests](https://github.com/nullps1/nullscan/actions/workflows/test.yml/badge.svg)](https://github.com/nullps1/nullscan/actions/workflows/test.yml)
+[![Release](https://github.com/nullps1/nullscan/actions/workflows/release.yml/badge.svg)](https://github.com/nullps1/nullscan/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub release](https://img.shields.io/github/v/release/Nullgrimoire/NullScan)](https://github.com/Nullgrimoire/NullScan/releases/latest)
+[![GitHub release](https://img.shields.io/github/v/release/nullps1/nullscan)](https://github.com/nullps1/nullscan/releases/latest)
 
 **NullScan** is a fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners. It supports full scans, top 100/1000 presets, and exports results to multiple formats — built for speed, clarity, and reconnaissance precision.
 
+Maintained by Noah "Null" Weeks ([nullps1 | systems builder](https://github.com/nullps1)) at [Weeks IT Solutions](https://weeksitsolutions.com). Contact: [noah@weeksitsolutions.com](mailto:noah@weeksitsolutions.com).
+
 ## 📖 Table of Contents
 
+- [Authorized use only](#authorized-use-only)
 - [✨ Features](#-features)
 - [📚 Documentation](#-documentation)
 - [🛡️ Vulnerability Assessment](#️-vulnerability-assessment)
@@ -26,6 +29,10 @@
 - [🏗️ Architecture](#️-architecture)
 - [🤝 Contributing](#-contributing)
 - [📝 License](#-license)
+
+## Authorized use only
+
+Scan only systems and networks you own or have explicit permission to test. Unauthorized port scanning can be illegal. You are responsible for complying with the laws and policies that apply to you. Questions and vulnerability reports: [noah@weeksitsolutions.com](mailto:noah@weeksitsolutions.com).
 
 ## ✨ Features
 
@@ -144,22 +151,35 @@ nullscan --target 192.168.1.100 --ports 22,80,443,3306 --banners
 - **📱 Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
 - **🎨 Professional Reports** - Generate and export professional-grade reports in multiple formats
 - **🔗 Clickable Navigation** - Click on any scan in the dashboard to view detailed results
-- **📋 Multiple Export Formats** - Export scan results in JSON, CSV, or HTML directly from the web interface
+- **📋 Scan detail pages** - Click a scan to see host, port, service, banner, and vulnerability counts. Full reports are the CLI `--format` output (json, markdown, csv, html)
 - **🛡️ Vulnerability Highlights** - Automatically highlight discovered vulnerabilities with severity indicators
 
 ### Quick Start
 
+There is no default dashboard port. Pass one every time. The default bind address is `127.0.0.1`.
+
 ```bash
-# Start the web dashboard on port 8080
+# Listen on http://127.0.0.1:8080 and print a one-time bearer token
 nullscan --web-dashboard 8080
 
-# Custom bind address and port
+# Or supply the token yourself (also read from NULLSCAN_WEB_TOKEN)
+nullscan --web-dashboard 8080 --web-token "$(openssl rand -hex 32)"
+```
+
+Open `http://127.0.0.1:8080/login`, paste the token, and the UI stores it in an HttpOnly cookie. API clients send it on every request:
+
+```bash
+curl -H "Authorization: Bearer $NULLSCAN_WEB_TOKEN" http://127.0.0.1:8080/api/health
+```
+
+Binding anywhere other than loopback prints a loud warning. Only do that on a trusted network:
+
+```bash
+# Dashboard URL is http://<this-host>:3000/dashboard — not 8080
 nullscan --web-dashboard 3000 --web-bind 0.0.0.0
 ```
 
-**Access the dashboard at:** `http://localhost:8080/dashboard`
-
-> 📖 **For complete web dashboard usage guide, API documentation, and advanced features, see [docs/web-dashboard-guide.md](docs/web-dashboard-guide.md)**
+> 📖 **For the login flow, API authentication, and report pages, see [docs/web-dashboard-guide.md](docs/web-dashboard-guide.md)**
 
 ### API Endpoints
 
@@ -174,8 +194,9 @@ nullscan --web-dashboard 3000 --web-bind 0.0.0.0
 ### Example API Usage
 
 ```bash
-# Start a scan via API
-curl -X POST http://localhost:8080/api/scan \
+# Start a scan via API. Replace TOKEN with the value printed at startup.
+curl -X POST http://127.0.0.1:8080/api/scan \
+  -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "target": "192.168.1.0/24",
@@ -186,10 +207,10 @@ curl -X POST http://localhost:8080/api/scan \
   }'
 
 # Get all scans
-curl http://localhost:8080/api/scans
+curl -H "Authorization: Bearer TOKEN" http://127.0.0.1:8080/api/scans
 
 # Get specific scan results
-curl http://localhost:8080/api/scan/{scan-id}/results
+curl -H "Authorization: Bearer TOKEN" http://127.0.0.1:8080/api/scan/{scan-id}/results
 ```
 
 ### Perfect for Red Teams
@@ -205,7 +226,7 @@ curl http://localhost:8080/api/scan/{scan-id}/results
 
 **Download ready-to-use binaries from our GitHub releases:**
 
-[![Download Latest Release](https://img.shields.io/github/v/release/Nullgrimoire/NullScan?label=Download&style=for-the-badge)](https://github.com/Nullgrimoire/NullScan/releases/latest)
+[![Download Latest Release](https://img.shields.io/github/v/release/nullps1/nullscan?label=Download&style=for-the-badge)](https://github.com/nullps1/nullscan/releases/latest)
 
 Choose the binary for your platform:
 
@@ -220,7 +241,7 @@ Choose the binary for your platform:
 ```bash
 # Download and install (replace VERSION with latest release)
 VERSION="v1.6.0"  # Check releases page for latest version
-wget https://github.com/Nullgrimoire/NullScan/releases/download/${VERSION}/nullscan-linux-x86_64
+wget https://github.com/nullps1/nullscan/releases/download/${VERSION}/nullscan-linux-x86_64
 chmod +x nullscan-linux-x86_64
 sudo mv nullscan-linux-x86_64 /usr/local/bin/nullscan
 
@@ -233,7 +254,7 @@ nullscan --version
 ```powershell
 # Download binary (replace VERSION with latest release)
 $VERSION = "v1.6.0"  # Check releases page for latest version
-Invoke-WebRequest -Uri "https://github.com/Nullgrimoire/NullScan/releases/download/$VERSION/nullscan-windows-x86_64.exe" -OutFile "nullscan.exe"
+Invoke-WebRequest -Uri "https://github.com/nullps1/nullscan/releases/download/$VERSION/nullscan-windows-x86_64.exe" -OutFile "nullscan.exe"
 
 # Run directly
 .\nullscan.exe --version
@@ -245,7 +266,7 @@ Always verify your downloads using the provided SHA256 checksums:
 
 ```bash
 # Linux/macOS
-wget https://github.com/Nullgrimoire/NullScan/releases/download/v1.6.0/nullscan-linux-x86_64.sha256
+wget https://github.com/nullps1/nullscan/releases/download/v1.6.0/nullscan-linux-x86_64.sha256
 shasum -a 256 -c nullscan-linux-x86_64.sha256
 ```
 
@@ -258,12 +279,12 @@ certutil -hashfile nullscan-windows-x86_64.exe SHA256
 ### Build from Source
 
 **Prerequisites:**
-- Rust 1.70+ ([Install Rust](https://rustup.rs/))
+- Rust 1.85+ ([Install Rust](https://rustup.rs/))
 
 ```bash
 # Clone the repository
-git clone https://github.com/Nullgrimoire/NullScan.git
-cd NullScan
+git clone https://github.com/nullps1/nullscan.git
+cd nullscan
 
 # Build the project
 cargo build --release
@@ -276,7 +297,7 @@ cargo build --release
 
 ```bash
 # Install from GitHub
-cargo install --git https://github.com/Nullgrimoire/NullScan.git
+cargo install --git https://github.com/nullps1/nullscan.git
 ```
 
 ## 🚀 Quick Start
@@ -337,31 +358,35 @@ nullscan --target 192.168.1.0/24 --fast-mode --top100
 
 ## 📋 Command Line Options
 
+`--target` is required for a scan. It is optional only when starting the web dashboard. Comma-separated targets are accepted (`"IP1,IP2,IP3"`).
+
 ```text
-Usage: nullscan [OPTIONS] --target <TARGET>
+Usage: nullscan [OPTIONS]
 
 Options:
-  -t, --target <TARGET>            Target IP address, hostname, or CIDR notation (e.g., 192.168.1.0/24)
-                                   Supports comma-separated targets: "IP1,IP2,IP3"
-  -p, --ports <PORTS>              Port range (e.g., 1-1000, 80,443,8080)
-      --top100                     Use top 100 most common ports
-      --top1000                    Use top 1000 most common ports
-  -c, --concurrency <CONCURRENCY>  Number of concurrent threads [default: 100]
-      --max-hosts <MAX_HOSTS>      Maximum concurrent hosts to scan (for CIDR ranges) [default: 1]
-      --ping-sweep                 Perform ping sweep before port scanning (skip unreachable hosts)
-      --timeout <TIMEOUT>          Connection timeout in milliseconds [default: 3000]
-      --ping-timeout <PING_TIMEOUT> Ping sweep timeout in milliseconds (faster detection for dead hosts) [default: 800]
-  -b, --banners                    Grab service banners with intelligent protocol probing
-      --vuln-check                 Check for known vulnerabilities based on service banners
-  -f, --format <FORMAT>            Export format (json, markdown, csv, html) [default: markdown]
-  -o, --output <OUTPUT>            Output file path
-  -v, --verbose                    Verbose output
-  -q, --quiet                      Quiet mode - suppress progress bars and non-essential output
-      --fast-mode                  Fast mode - auto-detect CPU cores and optimize for speed (disables banners, vuln checks, verbose)
-      --web-dashboard <PORT>       Start web dashboard on specified port
-      --web-bind <ADDRESS>         Web dashboard bind address [default: 127.0.0.1]
-  -h, --help                       Print help
-  -V, --version                    Print version
+  -t, --target <TARGET>                Target IP address, hostname, or CIDR notation (e.g., 192.168.1.0/24)
+  -p, --ports <PORTS>                  Port range (e.g., 1-1000, 80,443,8080)
+      --top100                         Use top 100 most common ports
+      --top1000                        Use top 1000 most common ports
+  -c, --concurrency <CONCURRENCY>      Number of concurrent threads [default: 100]
+      --max-hosts <MAX_HOSTS>          Maximum concurrent hosts to scan (for CIDR ranges) [default: 1]
+      --ping-sweep                     Perform ping sweep before port scanning (skip unreachable hosts)
+      --timeout <TIMEOUT>              Connection timeout in milliseconds [default: 3000]
+      --ping-timeout <PING_TIMEOUT>    Ping sweep timeout in milliseconds (faster detection for dead hosts) [default: 800]
+  -b, --banners                        Grab service banners with intelligent protocol probing
+      --vuln-check                     Check for known vulnerabilities based on service banners
+  -f, --format <FORMAT>                Export format (json, markdown, csv, html) [default: markdown]
+                                       [possible values: json, markdown, csv, html]
+  -o, --output <OUTPUT>                Output file path
+  -v, --verbose                        Verbose output
+  -q, --quiet                          Quiet mode - suppress progress bars and non-essential output
+      --fast-mode                      Fast mode - auto-detect CPU cores and optimize for speed
+      --web-dashboard <WEB_DASHBOARD>  Start web dashboard on specified port (no default)
+      --web-bind <WEB_BIND>            Web dashboard bind address [default: 127.0.0.1]
+      --web-token <WEB_TOKEN>          Bearer token for the dashboard. Generated if omitted
+                                       [env: NULLSCAN_WEB_TOKEN]
+  -h, --help                           Print help
+  -V, --version                        Print version
 ```
 
 ## 🏓 Ping Sweep Feature
@@ -717,13 +742,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by classic network scanning tools
 - Thanks to the Rust community for excellent async libraries
 
-## 💖 Support
+## Maintainer
 
-If you find NullScan helpful, consider supporting the project:
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20Development-orange?style=flat-square&logo=buy-me-a-coffee)](https://coff.ee/nullgrimoire)
-
-Your support helps maintain and improve NullScan for the community! 🚀
+Noah "Null" Weeks — [nullps1 | systems builder](https://github.com/nullps1) · [Weeks IT Solutions](https://weeksitsolutions.com) · [noah@weeksitsolutions.com](mailto:noah@weeksitsolutions.com)
 
 ---
 

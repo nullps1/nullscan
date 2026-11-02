@@ -11,6 +11,10 @@ Welcome to the NullScan documentation directory. This contains comprehensive tec
 
 ### 🔍 Feature Deep Dives
 - **[Banner Grabbing & Service Detection](banner-grabbing-deep-dive.md)** - Comprehensive guide to protocol-specific service detection, confidence scoring, and custom protocol support
+- **[Web Dashboard](web-dashboard-guide.md)** - Login token, API authentication, and report pages
+
+### 💻 Development
+- **[Development Guide](development.md)** - Build, test, clippy, and fmt
 
 ## 🔗 Quick Links
 
@@ -21,8 +25,7 @@ Welcome to the NullScan documentation directory. This contains comprehensive tec
 - **[SECURITY.md](../SECURITY.md)** - Security policy and vulnerability reporting
 
 ### Project Resources
-- **[Examples](../examples/)** - Demo scripts and usage examples
-- **[Scripts](../scripts/)** - Build and benchmark automation scripts
+- **[Scripts](../scripts/)** - Benchmark scripts
 - **[Source Code](../src/)** - Rust source code and modules
 
 ## 🎯 Documentation Standards

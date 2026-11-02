@@ -323,10 +323,8 @@ impl Scanner {
             let batch_results = join_all(tasks).await;
 
             // Collect batch results
-            for result in batch_results {
-                if let Ok(scan_result) = result {
-                    all_results.push(scan_result);
-                }
+            for scan_result in batch_results.into_iter().flatten() {
+                all_results.push(scan_result);
             }
         }
 
@@ -343,10 +341,10 @@ async fn scan_port_ultra_fast(target: IpAddr, port: u16, timeout_ms: u64) -> Sca
     let timeout_duration = Duration::from_millis(timeout_ms);
 
     // Fast TCP connect attempt - no banner grabbing, minimal service detection
-    let is_open = match timeout(timeout_duration, TcpStream::connect(socket_addr)).await {
-        Ok(Ok(_)) => true,
-        _ => false,
-    };
+    let is_open = matches!(
+        timeout(timeout_duration, TcpStream::connect(socket_addr)).await,
+        Ok(Ok(_))
+    );
 
     let response_time = start_time.elapsed();
 
@@ -462,4 +460,116 @@ fn get_service_name(port: u16) -> Option<String> {
         _ => return None,
     };
     Some(service.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vuln::VulnChecker;
+    use std::net::Ipv4Addr;
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpListener;
+
+    fn localhost() -> IpAddr {
+        IpAddr::V4(Ipv4Addr::LOCALHOST)
+    }
+
+    fn config(ports: Vec<u16>, banners: bool, fast_mode: bool) -> ScanConfig {
+        let target = localhost();
+        assert!(target.is_loopback());
+        ScanConfig {
+            target,
+            ports,
+            concurrency: 4,
+            timeout_ms: 1000,
+            grab_banners: banners,
+            quiet: true,
+            fast_mode,
+        }
+    }
+
+    async fn ephemeral_listener() -> (TcpListener, u16) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        (listener, port)
+    }
+
+    #[tokio::test]
+    async fn scan_reports_open_and_closed_localhost_ports() {
+        let (listener, open_port) = ephemeral_listener().await;
+        tokio::spawn(async move {
+            if let Ok((mut sock, _)) = listener.accept().await {
+                let _ = sock.write_all(b"SSH-2.0-OpenSSH_7.4\r\n").await;
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+        });
+
+        let (closed_listener, closed_port) = ephemeral_listener().await;
+        drop(closed_listener);
+
+        let scanner = Scanner::new(config(vec![open_port, closed_port], true, false));
+        let results = scanner.scan().await.unwrap();
+        assert!(results.iter().all(|r| r.target.is_loopback()));
+
+        let open = results.iter().find(|r| r.port == open_port).unwrap();
+        assert!(open.is_open);
+        let banner = open.banner.as_deref().unwrap_or("");
+        assert!(banner.contains("OpenSSH_7.4"), "banner was {banner:?}");
+
+        let closed = results.iter().find(|r| r.port == closed_port).unwrap();
+        assert!(!closed.is_open);
+        assert!(closed.banner.is_none());
+    }
+
+    #[tokio::test]
+    async fn fast_mode_scans_only_the_local_listener() {
+        let (listener, open_port) = ephemeral_listener().await;
+        tokio::spawn(async move {
+            if let Ok((sock, _)) = listener.accept().await {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                drop(sock);
+            }
+        });
+
+        let scanner = Scanner::new(config(vec![open_port], false, true));
+        let results = scanner.scan().await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].is_open);
+        assert!(results[0].banner.is_none());
+        assert!(results[0].target.is_loopback());
+    }
+
+    #[tokio::test]
+    async fn vuln_checker_matches_local_ssh_banner() {
+        let (listener, open_port) = ephemeral_listener().await;
+        tokio::spawn(async move {
+            if let Ok((mut sock, _)) = listener.accept().await {
+                let _ = sock.write_all(b"SSH-2.0-OpenSSH_7.4\r\n").await;
+                tokio::time::sleep(Duration::from_millis(300)).await;
+            }
+        });
+
+        let db = format!("{}/vuln_db.json", env!("CARGO_MANIFEST_DIR"));
+        let checker = VulnChecker::load_from_file(&db).unwrap();
+        let scanner = Scanner::new(config(vec![open_port], true, false));
+        let results = scanner
+            .scan_with_vuln_checker(Some(&checker))
+            .await
+            .unwrap();
+        let open = results.iter().find(|r| r.is_open).unwrap();
+        assert!(open.target.is_loopback());
+        assert!(
+            open.vulnerabilities
+                .iter()
+                .any(|v| v.cve == "CVE-2018-15473"),
+            "vulns: {:?}",
+            open.vulnerabilities
+        );
+    }
+
+    #[tokio::test]
+    async fn ping_sweep_keeps_localhost() {
+        let alive = ping_sweep(&[localhost()], 400, 2, true).await;
+        assert_eq!(alive, vec![localhost()]);
+    }
 }

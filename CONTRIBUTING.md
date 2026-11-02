@@ -6,7 +6,7 @@ We welcome contributions to NullScan! Here's how you can help make this project 
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (latest stable version)
+- [Rust](https://rustup.rs/) 1.85+ (stable)
 - Git
 - VS Code (recommended) with Rust extensions
 
@@ -14,8 +14,8 @@ We welcome contributions to NullScan! Here's how you can help make this project 
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Nullgrimoire/NullScan.git
-   cd NullScan
+   git clone https://github.com/nullps1/nullscan.git
+   cd nullscan
    ```
 
 2. **Build the project**:
@@ -174,8 +174,10 @@ src/
 ├── main.rs          # CLI interface and application entry point
 ├── scanner/         # Core scanning functionality
 ├── banner/          # Service banner detection
+├── vuln/            # Offline vulnerability matching
 ├── export/          # Output formatting and export
-└── presets/         # Port configuration presets
+├── presets/         # Port configuration presets
+└── web/             # Dashboard, API, and bearer-token auth
 ```
 
 ### Design Principles
@@ -188,7 +190,7 @@ src/
 
 ## 🔄 Pull Request Process
 
-1. **Fork the repository** and create your branch from `main`
+1. **Fork the repository** and create your branch from `master`
 
 2. **Make your changes** following the development guidelines
 
@@ -203,13 +205,10 @@ src/
    cargo fmt --check
    ```
 
-6. **Check automated workflows** - Our GitHub Actions will automatically:
-   - ✅ Test on Linux, Windows, and macOS
-   - ✅ Run security audits and dependency checks
-   - ✅ Validate code formatting and linting
-   - ✅ Test demo scripts across all platforms
-   - ✅ Run performance benchmarks (for PRs)
-   - ✅ Check documentation and links
+6. **Check automated workflows** - GitHub Actions will automatically:
+   - Test on Linux, Windows, and macOS
+   - Run `cargo fmt --check`, `cargo clippy -- -D warnings`, and `cargo audit`
+   - Build the release binary
 
 7. **Write a clear PR description** including:
    - What changes you made

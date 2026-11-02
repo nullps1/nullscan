@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- The web dashboard UI and API now require a bearer token (`--web-token` or `NULLSCAN_WEB_TOKEN`, otherwise generated and printed at startup). Unauthenticated API calls return 401. The UI login page stores the token in an HttpOnly cookie.
+- Binding the dashboard to anything other than loopback prints a startup warning. The default bind remains `127.0.0.1`.
+- Removed permissive CORS. The embedded UI is same-origin; API clients send the bearer token directly.
+
+### Changed
+- Project identity now points at github.com/nullps1/nullscan, Noah "Null" Weeks, and noah@weeksitsolutions.com. Removed the old Nullgrimoire URLs, emails, and Buy Me a Coffee link.
+- Updated axum 0.7 to 0.8 (path params use `{id}`), tower 0.5, tower-http 0.7, dashmap 6, env_logger 0.11, indicatif 0.18, colored 3, console 0.16, and the rest of the direct dependencies.
+- Release workflow publishes assets with the GitHub CLI instead of the archived `actions/create-release` and `actions/upload-release-asset` actions. Checksums name the released asset file.
+- `--format` help text lists `html`.
+
+### Added
+- Localhost unit tests for the scanner, banner probes, `vuln_db.json` matching, and json/markdown/csv/html export.
+- CI lint job: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo audit`.
+- `docs/development.md`.
+
 ## [1.6.0] - 2025-07-14
 
 ### Added

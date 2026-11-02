@@ -7,28 +7,26 @@ on:
 
 env:
     CARGO_TERM_COLOR: always
+    # gh otherwise looks for a local checkout. The create job does not check one out.
+    GH_REPO: ${{ github.repository }}
 
 permissions:
     contents: write
-    actions: write
 
 jobs:
     create-release:
         name: Create Release
         runs-on: ubuntu-latest
-        outputs:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
         steps:
-            - name: Create Release
-              id: create_release
-              uses: actions/create-release@v1
+            - name: Create GitHub Release
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  tag_name: ${{ github.ref }}
-                  release_name: NullScan ${{ github.ref }}
-                  draft: false
-                  prerelease: false
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release create "${{ github.ref_name }}" \
+                    --repo "${{ github.repository }}" \
+                    --title "NullScan ${{ github.ref_name }}" \
+                    --notes "Release ${{ github.ref_name }} of NullScan." \
+                    --verify-tag
 
     build:
         name: Build
@@ -77,36 +75,25 @@ jobs:
               if: matrix.os != 'windows-latest'
               run: strip target/${{ matrix.target }}/release/${{ matrix.binary_name }}
 
-            - name: Generate checksums
+            - name: Package asset and checksum
               shell: bash
               run: |
+                  cd target/${{ matrix.target }}/release
+                  cp "${{ matrix.binary_name }}" "${{ matrix.asset_name }}"
                   if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-                    cd target/${{ matrix.target }}/release
-                    certutil -hashfile ${{ matrix.binary_name }} SHA256 > ${{ matrix.asset_name }}.sha256
-                    # Convert Windows certutil output to standard format
-                    powershell -Command "(Get-Content '${{ matrix.asset_name }}.sha256')[1] + '  ${{ matrix.binary_name }}'" > ${{ matrix.asset_name }}.sha256.tmp
-                    mv ${{ matrix.asset_name }}.sha256.tmp ${{ matrix.asset_name }}.sha256
+                    hash=$(powershell.exe -NoProfile -Command "(Get-FileHash -Algorithm SHA256 '${{ matrix.asset_name }}').Hash.ToLower()")
+                    printf '%s  %s\n' "$hash" "${{ matrix.asset_name }}" > "${{ matrix.asset_name }}.sha256"
                   else
-                    cd target/${{ matrix.target }}/release
-                    shasum -a 256 ${{ matrix.binary_name }} > ${{ matrix.asset_name }}.sha256
+                    shasum -a 256 "${{ matrix.asset_name }}" > "${{ matrix.asset_name }}.sha256"
                   fi
 
-            - name: Upload Release Asset
-              uses: actions/upload-release-asset@v1
+            - name: Upload release assets
+              shell: bash
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ needs.create-release.outputs.upload_url }}
-                  asset_path: target/${{ matrix.target }}/release/${{ matrix.binary_name }}
-                  asset_name: ${{ matrix.asset_name }}
-                  asset_content_type: application/octet-stream
-
-            - name: Upload Checksum
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ needs.create-release.outputs.upload_url }}
-                  asset_path: target/${{ matrix.target }}/release/${{ matrix.asset_name }}.sha256
-                  asset_name: ${{ matrix.asset_name }}.sha256
-                  asset_content_type: text/plain
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release upload "${{ github.ref_name }}" \
+                    --repo "${{ github.repository }}" \
+                    "target/${{ matrix.target }}/release/${{ matrix.asset_name }}" \
+                    "target/${{ matrix.target }}/release/${{ matrix.asset_name }}.sha256" \
+                    --clobber
