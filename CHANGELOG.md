@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-02
+
 ### Added
 - Client-facing PDF reports via `nullscan report`. The report can be built from a live scan (`--target`) or regenerated from a saved JSON export (`--input`) without scanning again. Client, authorization, and branding fields come from a TOML config, with CLI overrides. The generator refuses to build a PDF when the authorization reference, signer name, or signed date is missing or blank. The signed date must be a real calendar date. A blank delivery date is today's date in America/Denver.
 - `--input` must be a nullscan scan export (`scan_info` and `results`). Other JSON, including `vuln_db.json` or `{}`, is rejected. An empty `results` array is still accepted for a scan with no open ports.
