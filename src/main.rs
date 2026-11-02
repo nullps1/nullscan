@@ -25,7 +25,7 @@ enum Command {
 #[command(
     about = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners. Authorized use only."
 )]
-#[command(version = "1.7.0")]
+#[command(version = "1.8.0")]
 struct Args {
     /// Target IP address, hostname, or CIDR notation (e.g., 192.168.1.0/24)
     #[arg(short, long)]
@@ -176,7 +176,7 @@ async fn main() -> Result<()> {
 
     init_logger(args.quiet, args.verbose);
 
-    info!("🚀 NullScan v1.7.0 - Starting port scan");
+    info!("🚀 NullScan v1.8.0 - Starting port scan");
 
     let target = args
         .target
