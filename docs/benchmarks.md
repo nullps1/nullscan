@@ -13,7 +13,7 @@ This document provides comprehensive **validated** performance benchmarks for Nu
 - **Target**: Localhost with standard Windows services
 
 ### Tool Versions
-- **NullScan**: v1.6.0 (with optimized ping sweep)
+- **NullScan**: v1.7.0 (with optimized ping sweep)
 - **Nmap**: 7.94+
 - **Test Iterations**: 10 runs per test for statistical accuracy
 
@@ -275,4 +275,4 @@ NullScan delivers a powerful blend of:
 
 While Nmap remains the king of features and Masscan rules raw speed, **NullScan hits the sweet spot for efficient, actionable scanning**.
 
-*Benchmarks performed on NullScan v1.6.0. Results may vary based on hardware and network conditions.*
+*Benchmarks performed on NullScan v1.7.0. Results may vary based on hardware and network conditions.*

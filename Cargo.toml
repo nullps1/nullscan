@@ -1,6 +1,6 @@
 [package]
 name = "nullscan"
-version = "1.6.0"
+version = "1.7.0"
 edition = "2021"
 authors = ["Noah \"Null\" Weeks <noah@weeksitsolutions.com>"]
 description = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners"

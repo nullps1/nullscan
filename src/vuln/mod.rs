@@ -198,7 +198,7 @@ pub struct VulnDbStats {
 #[cfg(test)]
 fn create_sample_database() -> VulnDatabase {
     VulnDatabase {
-        version: "1.6.0".to_string(),
+        version: "1.7.0".to_string(),
         last_updated: "2025-07-13".to_string(),
         patterns: vec![
             ServicePattern {

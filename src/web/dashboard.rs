@@ -439,7 +439,7 @@ pub async fn dashboard_index(State(state): State<Arc<AppState>>) -> Html<String>
         </div>
 
         <div class="footer">
-            <p>NullScan v1.6.0 · nullps1 | systems builder</p>
+            <p>NullScan v1.7.0 · nullps1 | systems builder</p>
             <p>Weeks IT Solutions · Authorized use only</p>
         </div>
     </div>
