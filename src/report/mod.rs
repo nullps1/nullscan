@@ -212,7 +212,7 @@ mod tests {
         info.insert("timestamp".into(), "2026-10-28T18:30:00Z".into());
         info.insert("scan_started".into(), "2026-10-28T18:29:59Z".into());
         info.insert("scan_ended".into(), "2026-10-28T18:30:00Z".into());
-        info.insert("nullscan_version".into(), "1.8.0".into());
+        info.insert("nullscan_version".into(), "1.9.0".into());
         info.insert("vuln_db_updated".into(), "2025-07-13".into());
         model::LoadedScan {
             info,
