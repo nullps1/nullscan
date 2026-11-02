@@ -214,6 +214,7 @@ mod tests {
 legal_name = "Example Co"
 [authorization]
 reference = "AUTH-SMOKE"
+signer_name = "Pat Example"
 signed_date = "2026-10-01"
 "#,
             std::path::Path::new("report.toml"),
@@ -249,6 +250,13 @@ signed_date = "2026-10-01"
         let report = model::assemble(&config, &scan.info, &scan.results).unwrap();
         assert_eq!(report.grade.letter, 'F');
         assert!(report.config.insurance_appendix);
+        assert!(report.config.rescan_offer.contains("We'll rescan"));
+        assert!(report
+            .config
+            .monitoring_offer
+            .contains("Monthly monitoring"));
+        assert!(!report.config.rescan_offer.contains("{{"));
+        assert!(!report.config.monitoring_offer.contains("{{"));
         let bytes = pdf::render(&report).unwrap();
         assert!(bytes.starts_with(b"%PDF"));
         assert!(bytes.len() > 5_000);

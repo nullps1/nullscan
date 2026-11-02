@@ -1,7 +1,8 @@
 //! Report metadata from a TOML file, with optional CLI overrides.
 //!
-//! The generator refuses to build a report when the authorization reference
-//! is missing from both the file and the overrides.
+//! The generator refuses to build a report when the authorization reference,
+//! signer name, or signed date is missing from both the file and the overrides.
+//! A blank string counts as missing. The signed date must be a real calendar date.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -24,7 +25,7 @@ pub struct ReportOverrides {
     #[arg(long)]
     pub auth_ref: Option<String>,
 
-    /// Name of the person who signed the authorization.
+    /// Name of the person who signed the authorization. Required from the config or this flag.
     #[arg(long)]
     pub signer: Option<String>,
 
@@ -32,7 +33,7 @@ pub struct ReportOverrides {
     #[arg(long)]
     pub signer_title: Option<String>,
 
-    /// Date the authorization was signed (as it should appear on the report).
+    /// Date the authorization was signed. Required. A real calendar date, such as 2026-10-20.
     #[arg(long)]
     pub signed_date: Option<String>,
 
@@ -275,6 +276,17 @@ fn resolve(
             "Refusing to build the report without an authorization reference. Set authorization.reference in the config or pass --auth-ref."
         );
     }
+    let signer_name = override_nonempty(overrides.signer.clone(), file.authorization.signer_name);
+    let signer_name = signer_name.trim().to_string();
+    if signer_name.is_empty() {
+        bail!(
+            "Refusing to build the report without the authorization signer name. Set authorization.signer_name in the config or pass --signer."
+        );
+    }
+    let signed_date = require_signed_date(&override_nonempty(
+        overrides.signed_date.clone(),
+        file.authorization.signed_date,
+    ))?;
 
     let accent_hex = override_nonempty(overrides.accent.clone(), file.report.accent);
     let accent = parse_accent(&accent_hex)?;
@@ -304,15 +316,12 @@ fn resolve(
         client_legal_name: override_nonempty(overrides.client.clone(), file.client.legal_name),
         client_contact: override_nonempty(overrides.client_contact.clone(), file.client.contact),
         auth_ref: auth_ref.trim().to_string(),
-        signer_name: override_nonempty(overrides.signer.clone(), file.authorization.signer_name),
+        signer_name,
         signer_title: override_nonempty(
             overrides.signer_title.clone(),
             file.authorization.signer_title,
         ),
-        signed_date: override_nonempty(
-            overrides.signed_date.clone(),
-            file.authorization.signed_date,
-        ),
+        signed_date,
         scope: override_nonempty(overrides.scope.clone(), file.scope.summary),
         assets: file.scope.assets,
         known_mail_hosts,
@@ -350,13 +359,49 @@ fn placeholder_if_blank(value: &str, placeholder: &str) -> String {
     }
 }
 
+fn require_signed_date(value: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        bail!(
+            "Refusing to build the report without the authorization signed date. Set authorization.signed_date in the config or pass --signed-date."
+        );
+    }
+    if parse_calendar_date(trimmed).is_none() {
+        bail!(
+            "Refusing to build the report because the authorization signed date {trimmed:?} is not a real date. Use a calendar date such as 2026-10-20."
+        );
+    }
+    Ok(trimmed.to_string())
+}
+
+fn parse_calendar_date(value: &str) -> Option<chrono::NaiveDate> {
+    const FORMATS: &[&str] = &[
+        "%Y-%m-%d",
+        "%Y/%m/%d",
+        "%m/%d/%Y",
+        "%B %-d, %Y",
+        "%b %-d, %Y",
+        "%-d %B %Y",
+        "%-d %b %Y",
+    ];
+    FORMATS
+        .iter()
+        .find_map(|format| chrono::NaiveDate::parse_from_str(value, format).ok())
+}
+
 fn blank_to_today(value: &str) -> String {
     if value.trim().is_empty() {
-        let today = chrono::Utc::now().with_timezone(&chrono_tz::America::Denver);
-        today.format("%B %-d, %Y").to_string()
+        today_in_denver()
     } else {
-        value.to_string()
+        value.trim().to_string()
     }
+}
+
+fn today_in_denver() -> String {
+    chrono::Utc::now()
+        .with_timezone(&chrono_tz::America::Denver)
+        .format("%B %-d, %Y")
+        .to_string()
 }
 
 fn split_list(value: &str) -> Vec<String> {
@@ -441,18 +486,133 @@ retention_days = 30
         );
     }
 
-    #[test]
-    fn cli_authorization_reference_is_enough() {
-        let overrides = ReportOverrides {
+    fn complete_cli() -> ReportOverrides {
+        ReportOverrides {
             auth_ref: Some("AUTH-CLI".to_string()),
+            signer: Some("Pat Example".to_string()),
+            signed_date: Some("2026-10-20".to_string()),
             ..ReportOverrides::default()
-        };
-        let config = parse_config(WITHOUT_AUTH, Path::new("report.toml"), &overrides).unwrap();
+        }
+    }
+
+    #[test]
+    fn cli_authorization_block_is_enough() {
+        let config = parse_config(WITHOUT_AUTH, Path::new("report.toml"), &complete_cli()).unwrap();
         assert_eq!(config.auth_ref, "AUTH-CLI");
+        assert_eq!(config.signer_name, "Pat Example");
+        assert_eq!(config.signed_date, "2026-10-20");
         assert_eq!(config.client_legal_name, "Example Co");
         assert_eq!(config.contact_name, "Noah Weeks");
         assert_eq!(config.retention_days, 90);
         assert_eq!(config.rescan_offer, "{{rescan_offer}}");
+        assert_eq!(config.delivery_date, today_in_denver());
+    }
+
+    #[test]
+    fn blank_signer_or_signed_date_is_refused() {
+        let reference_only = "[authorization]\nreference = \"AUTH-1\"\n";
+        let err = parse_config(
+            reference_only,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("signer name"), "{}", err);
+
+        let blank_signer = "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"   \"\nsigned_date = \"2026-10-20\"\n";
+        let err = parse_config(
+            blank_signer,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("signer name"), "{}", err);
+
+        let blank_date = "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"Pat Example\"\nsigned_date = \"\"\n";
+        let err = parse_config(
+            blank_date,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("signed date"), "{}", err);
+
+        let whitespace_date = "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"Pat Example\"\nsigned_date = \"   \"\n";
+        let err = parse_config(
+            whitespace_date,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("signed date"), "{}", err);
+    }
+
+    #[test]
+    fn signed_date_must_be_a_real_calendar_date() {
+        let base = "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"Pat Example\"\n";
+        for bad in [
+            "soon",
+            "2026-02-31",
+            "2026-13-01",
+            "2026-02-29",
+            "not provided",
+        ] {
+            let text = format!("{base}signed_date = \"{bad}\"\n");
+            let err = parse_config(&text, Path::new("report.toml"), &ReportOverrides::default())
+                .unwrap_err();
+            assert!(err.to_string().contains("not a real date"), "{bad}: {err}");
+        }
+        for good in [
+            "2026-10-20",
+            "2024-02-29",
+            "2026/10/20",
+            "10/20/2026",
+            "October 20, 2026",
+            "20 October 2026",
+        ] {
+            let text = format!("{base}signed_date = \"{good}\"\n");
+            let config =
+                parse_config(&text, Path::new("report.toml"), &ReportOverrides::default()).unwrap();
+            assert_eq!(config.signed_date, good);
+        }
+    }
+
+    #[test]
+    fn cli_signer_and_signed_date_fill_a_blank_file() {
+        let text =
+            "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"\"\nsigned_date = \"\"\n";
+        let overrides = ReportOverrides {
+            signer: Some("  Casey Example  ".to_string()),
+            signed_date: Some(" 2026-11-02 ".to_string()),
+            ..ReportOverrides::default()
+        };
+        let config = parse_config(text, Path::new("report.toml"), &overrides).unwrap();
+        assert_eq!(config.signer_name, "Casey Example");
+        assert_eq!(config.signed_date, "2026-11-02");
+    }
+
+    #[test]
+    fn blank_delivery_date_is_today_in_denver() {
+        let config = parse_config(
+            WITH_AUTH,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap();
+        assert_eq!(config.delivery_date, today_in_denver());
+
+        let dated = r#"
+[authorization]
+reference = "AUTH-1"
+signer_name = "Pat Example"
+signed_date = "2026-10-01"
+
+[report]
+delivery_date = "  November 2, 2026  "
+"#;
+        let config =
+            parse_config(dated, Path::new("report.toml"), &ReportOverrides::default()).unwrap();
+        assert_eq!(config.delivery_date, "November 2, 2026");
     }
 
     #[test]

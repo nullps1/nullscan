@@ -33,5 +33,5 @@ email = "noah@weeksitsolutions.com"
 phone = "(000) 000-0000"
 
 [offers]
-rescan = "{{rescan_offer}} After the fix-first items are closed, the same addresses can be scanned again. Pricing for that rescan is still a draft."
-monitoring = "{{monitoring_offer}} Ongoing exposure monitoring is available. Pricing is still a draft."
+rescan = "Fixed something? We'll rescan the same scope once within 60 days so you can see the grade improve."
+monitoring = "Want us to keep watch? Monthly monitoring checks the same public IPs and alerts you if something new opens up."

@@ -1,7 +1,9 @@
 //! Plain-English finding copy, keyed by port and then by service name.
 //!
 //! Edit this table to change client-facing wording. The generic fallback is
-//! used when neither the port nor the service name matches.
+//! used when neither the port nor the service name matches. Steps may name the
+//! entry's usual port. `instructions` rewrites that number to the port that
+//! was actually open.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Effort {
@@ -370,6 +372,48 @@ pub fn title_for(entry: &PlaybookEntry) -> String {
     format!("{} open to the internet", entry.plain_name)
 }
 
+/// Steps for this finding. When the service is on a port the entry does not
+/// list, every port number written in the steps is replaced with `port`.
+pub fn instructions(entry: &PlaybookEntry, port: u16) -> Vec<String> {
+    entry
+        .steps
+        .iter()
+        .map(|step| rewrite_listed_ports(step, entry.ports, port))
+        .collect()
+}
+
+fn rewrite_listed_ports(step: &str, listed: &[u16], actual: u16) -> String {
+    if listed.is_empty() || listed.contains(&actual) {
+        return step.to_string();
+    }
+    let mut rewritten = step.to_string();
+    for listed_port in listed {
+        rewritten = replace_port_number(&rewritten, *listed_port, actual);
+    }
+    rewritten
+}
+
+fn replace_port_number(text: &str, from: u16, to: u16) -> String {
+    let needle: Vec<char> = from.to_string().chars().collect();
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::new();
+    let mut index = 0;
+    while index < chars.len() {
+        let end = index + needle.len();
+        let matches = end <= chars.len() && chars[index..end] == needle[..];
+        let before = index == 0 || !chars[index - 1].is_ascii_digit();
+        let after = end >= chars.len() || !chars[end].is_ascii_digit();
+        if matches && before && after {
+            out.push_str(&to.to_string());
+            index = end;
+        } else {
+            out.push(chars[index]);
+            index += 1;
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,5 +459,20 @@ mod tests {
     fn titles_follow_the_template() {
         let entry = lookup(3389, Some("RDP"));
         assert_eq!(title_for(entry), "Remote Desktop open to the internet");
+    }
+
+    #[test]
+    fn mysql_on_3307_names_3307_in_the_instructions() {
+        let entry = lookup(3307, Some("MySQL"));
+        let steps = instructions(entry, 3307).join("\n");
+        assert!(steps.contains("3307"), "{steps}");
+        assert!(!steps.contains("3306"), "{steps}");
+
+        let standard = instructions(lookup(3306, Some("MySQL")), 3306).join("\n");
+        assert!(standard.contains("3306"), "{standard}");
+
+        let remote = instructions(lookup(3390, Some("RDP")), 3390).join("\n");
+        assert!(remote.contains("3390"), "{remote}");
+        assert!(!remote.contains("3389"), "{remote}");
     }
 }

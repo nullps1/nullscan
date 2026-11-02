@@ -360,7 +360,7 @@ nullscan --target 192.168.1.0/24 --fast-mode --top100
 
 ## 📄 Client exposure report
 
-`nullscan report` writes a client-facing PDF. It can scan and then render, or rebuild the PDF from a JSON export so the report can be regenerated without scanning again. The generator refuses to run without an authorization reference.
+`nullscan report` writes a client-facing PDF. It can scan and then render, or rebuild the PDF from a JSON export so the report can be regenerated without scanning again. `--input` must be a nullscan JSON export with `scan_info` and `results`. An empty `results` array is a real scan that found no open ports. The generator refuses to run unless the authorization reference, signer name, and a real signed date are set. A blank delivery date becomes today's date in America/Denver.
 
 ```bash
 # Scan, then write the PDF. Banners and vuln-check make the findings useful.
@@ -377,7 +377,7 @@ nullscan --target 203.0.113.10 --ports 22,80,443 --banners --vuln-check \
 nullscan report --config client.toml --input scan.json --output exposure.pdf
 ```
 
-Any field in the TOML can be overridden on the command line (`--auth-ref`, `--client`, `--signer`, `--signed-date`, `--scope`, `--logo`, `--accent`, `--retention-days`, `--insurance-appendix` / `--no-insurance-appendix`, `--rescan-offer`, `--monitoring-offer`, `--contact-name`, `--contact-email`, `--contact-phone`, `--known-mail-hosts`). `--auth-ref` satisfies the authorization check when the file has none.
+Any field in the TOML can be overridden on the command line (`--auth-ref`, `--client`, `--signer`, `--signed-date`, `--scope`, `--logo`, `--accent`, `--retention-days`, `--insurance-appendix` / `--no-insurance-appendix`, `--rescan-offer`, `--monitoring-offer`, `--contact-name`, `--contact-email`, `--contact-phone`, `--known-mail-hosts`). `--auth-ref`, `--signer`, and `--signed-date` satisfy the authorization check when the file leaves them blank. `--signed-date` has to be a real calendar date, such as `2026-10-20`.
 
 A worked example with a fake client and documentation-range addresses is in `examples/`:
 

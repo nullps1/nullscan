@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Utc};
 
 use crate::report::config::ResolvedConfig;
@@ -39,7 +39,7 @@ pub struct Finding {
     pub detected: String,
     pub what: &'static str,
     pub why: &'static str,
-    pub steps: &'static [&'static str],
+    pub steps: Vec<String>,
     pub who: String,
     pub effort: String,
     pub technical: Vec<String>,
@@ -75,6 +75,7 @@ struct BuiltFinding {
     host: IpAddr,
     port: u16,
     entry: &'static PlaybookEntry,
+    steps: Vec<String>,
     detected: String,
     technical: Vec<String>,
     cve_lines: Vec<String>,
@@ -127,22 +128,15 @@ pub fn assemble(
             .iter()
             .take(3)
             .map(|row| {
-                let entry = built
+                let step = built
                     .iter()
                     .find(|finding| {
                         finding.entry.plain_name == row.name
                             && format!("{}:{}", finding.host, finding.port) == row.where_label
                     })
-                    .map(|finding| {
-                        finding
-                            .entry
-                            .steps
-                            .first()
-                            .copied()
-                            .unwrap_or("Confirm whether this should be reachable.")
-                    })
+                    .and_then(|finding| finding.steps.first().map(String::as_str))
                     .unwrap_or("Confirm whether this should be reachable.");
-                format!("{}: {entry}", row.name)
+                format!("{}: {step}", row.name)
             })
             .collect()
     };
@@ -157,7 +151,7 @@ pub fn assemble(
             detected: finding.detected.clone(),
             what: finding.entry.what,
             why: finding.entry.why,
-            steps: finding.entry.steps,
+            steps: finding.steps.clone(),
             who: finding.entry.who.label().to_string(),
             effort: finding.entry.effort.label().to_string(),
             technical: finding.technical.clone(),
@@ -206,6 +200,7 @@ fn build_finding(config: &ResolvedConfig, result: &ScanResult) -> BuiltFinding {
         known_mail_host,
     });
     let entry = playbook::lookup(result.port, result.service.as_deref());
+    let steps = playbook::instructions(entry, result.port);
     let detected = detected_label(result.service.as_deref(), result.banner.as_deref());
 
     let mut technical = Vec::new();
@@ -243,6 +238,7 @@ fn build_finding(config: &ResolvedConfig, result: &ScanResult) -> BuiltFinding {
         host: result.target,
         port: result.port,
         entry,
+        steps,
         detected,
         technical,
         cve_lines,
@@ -527,12 +523,26 @@ fn disclaimers(config: &ResolvedConfig, summary: &ScanSummary) -> Vec<String> {
 pub fn load_scan_json(path: &std::path::Path) -> Result<LoadedScan> {
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read scan export {}", path.display()))?;
-    let parsed: ExportFile = serde_json::from_str(&text).with_context(|| {
-        format!(
-            "Failed to parse scan export {}. Expected a nullscan JSON export with scan_info and results.",
-            path.display()
-        )
-    })?;
+    parse_scan_export(&text)
+        .with_context(|| format!("Failed to parse scan export {}", path.display()))
+}
+
+pub fn parse_scan_export(text: &str) -> Result<LoadedScan> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .context("Refusing to build the report: the input is not valid JSON.")?;
+    let Some(object) = value.as_object() else {
+        bail!(
+            "Refusing to build the report: the input is not a nullscan scan export. Expected a JSON object with scan_info and results."
+        );
+    };
+    if !object.contains_key("scan_info") || !object.contains_key("results") {
+        bail!(
+            "Refusing to build the report: the input is not a nullscan scan export. Expected scan_info and results. An empty results array is valid when the scan found no open ports."
+        );
+    }
+    let parsed: ExportFile = serde_json::from_value(value).context(
+        "Refusing to build the report: scan_info must be an object of strings and results must be an array of scan rows.",
+    )?;
     Ok(LoadedScan {
         info: parsed.scan_info,
         results: parsed.results,
@@ -541,12 +551,11 @@ pub fn load_scan_json(path: &std::path::Path) -> Result<LoadedScan> {
 
 #[derive(Debug, serde::Deserialize)]
 struct ExportFile {
-    #[serde(default)]
     scan_info: HashMap<String, String>,
-    #[serde(default)]
     results: Vec<ScanResult>,
 }
 
+#[derive(Debug)]
 pub struct LoadedScan {
     pub info: HashMap<String, String>,
     pub results: Vec<ScanResult>,
@@ -691,5 +700,65 @@ known_mail_hosts = ["198.51.100.20"]
             .iter()
             .all(|finding| finding.severity > Severity::Info));
         assert_eq!(model.appendix.len(), 3);
+    }
+
+    #[test]
+    fn mysql_on_3307_tells_the_reader_to_block_3307() {
+        let model = assemble(
+            &config(),
+            &HashMap::new(),
+            &[result(
+                [203, 0, 113, 10],
+                3307,
+                "MySQL",
+                "MySQL 5.7.33",
+                None,
+            )],
+        )
+        .unwrap();
+        let steps = model.findings[0].steps.join("\n");
+        let actions = model.top_actions.join("\n");
+        assert!(steps.contains("3307"), "{steps}");
+        assert!(!steps.contains("3306"), "{steps}");
+        assert!(actions.contains("3307"), "{actions}");
+        assert!(!actions.contains("3306"), "{actions}");
+    }
+
+    #[test]
+    fn rejects_json_that_is_not_a_scan_export() {
+        for text in [
+            "{}",
+            "[]",
+            "{\"version\":\"2\"}",
+            "{\"scan_info\":{}}",
+            "{\"results\":[]}",
+        ] {
+            let err = parse_scan_export(text).unwrap_err();
+            let message = err.to_string();
+            assert!(
+                message.contains("scan export") || message.contains("scan_info"),
+                "{text}: {message}"
+            );
+        }
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let err = load_scan_json(&root.join("vuln_db.json")).unwrap_err();
+        let message = format!("{err:#}");
+        assert!(
+            message.contains("not a nullscan scan export"),
+            "vuln_db.json should not build a report: {message}"
+        );
+    }
+
+    #[test]
+    fn accepts_an_explicitly_empty_results_array() {
+        let loaded = parse_scan_export(
+            r#"{"scan_info":{"target":"203.0.113.10","open_ports":"0"},"results":[]}"#,
+        )
+        .unwrap();
+        assert!(loaded.results.is_empty());
+        let model = assemble(&config(), &loaded.info, &loaded.results).unwrap();
+        assert_eq!(model.grade.letter, 'A');
+        assert!(model.findings.is_empty());
+        assert!(model.fix_first.is_empty());
     }
 }
