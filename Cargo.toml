@@ -34,6 +34,10 @@ tower-http = { version = "0.7", features = ["fs"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 tokio-stream = "0.1"
 dashmap = "6"
+# PDF reports. default-features off skips HTML/fontconfig; png is pure Rust.
+printpdf = { version = "0.11.1", default-features = false, features = ["png"] }
+toml = "0.8"
+chrono-tz = "0.10"
 
 [dev-dependencies]
 tokio-test = "0.4"

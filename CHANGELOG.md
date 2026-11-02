@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Client-facing PDF reports via `nullscan report`. The report can be built from a live scan (`--target`) or regenerated from a saved JSON export (`--input`) without scanning again. Client, authorization, and branding fields come from a TOML config, with CLI overrides. The generator refuses to build a PDF when the authorization reference is missing.
+- Severity classification and the A–F overall grade follow the external exposure outline. Tags print the word and a shape icon as text. The PDF embeds DejaVu Sans so those icons render without a system font.
+- Sample fixtures: `examples/sample-scan.json`, `examples/sample-report.toml`, and `examples/sample-report.pdf`.
+
 ## [1.7.0] - 2026-11-01
 
 ### Security

@@ -1,0 +1,118 @@
+{
+  "scan_info": {
+    "target": "203.0.113.10,198.51.100.20",
+    "total_ports": "200",
+    "open_ports": "10",
+    "closed_ports": "190",
+    "scan_duration": "4.20s",
+    "timestamp": "2026-10-28T18:30:00Z",
+    "scan_started": "2026-10-28T18:29:55Z",
+    "scan_ended": "2026-10-28T18:30:00Z",
+    "nullscan_version": "1.7.0",
+    "vuln_db_updated": "2025-07-13",
+    "vuln_db_version": "2.0.1"
+  },
+  "results": [
+    {
+      "target": "203.0.113.10",
+      "port": 3389,
+      "is_open": true,
+      "service": "RDP",
+      "banner": "Remote Desktop Protocol",
+      "response_time": 18,
+      "vulnerabilities": []
+    },
+    {
+      "target": "203.0.113.10",
+      "port": 445,
+      "is_open": true,
+      "service": "SMB/NetBIOS",
+      "banner": "SMB negotiation",
+      "response_time": 22,
+      "vulnerabilities": []
+    },
+    {
+      "target": "203.0.113.10",
+      "port": 3306,
+      "is_open": true,
+      "service": "MySQL",
+      "banner": "MySQL 5.7.33",
+      "response_time": 15,
+      "vulnerabilities": []
+    },
+    {
+      "target": "203.0.113.10",
+      "port": 22,
+      "is_open": true,
+      "service": "SSH",
+      "banner": "SSH-2.0-OpenSSH_7.4",
+      "response_time": 11,
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2018-15473",
+          "description": "OpenSSH through 7.7 is prone to a user enumeration issue.",
+          "severity": "Medium",
+          "cvss_score": 5.3,
+          "published": "2018-08-17",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2018-15473"
+          ]
+        }
+      ]
+    },
+    {
+      "target": "203.0.113.10",
+      "port": 80,
+      "is_open": true,
+      "service": "HTTP",
+      "banner": "Apache/2.2.34",
+      "response_time": 9,
+      "vulnerabilities": []
+    },
+    {
+      "target": "203.0.113.10",
+      "port": 443,
+      "is_open": true,
+      "service": "TLS/SSL",
+      "banner": "TLS handshake successful",
+      "response_time": 14,
+      "vulnerabilities": []
+    },
+    {
+      "target": "198.51.100.20",
+      "port": 21,
+      "is_open": true,
+      "service": "FTP",
+      "banner": "220 vsftpd 2.0.8",
+      "response_time": 12,
+      "vulnerabilities": []
+    },
+    {
+      "target": "198.51.100.20",
+      "port": 25,
+      "is_open": true,
+      "service": "SMTP",
+      "banner": "220 mail.example.test ESMTP",
+      "response_time": 8,
+      "vulnerabilities": []
+    },
+    {
+      "target": "198.51.100.20",
+      "port": 8080,
+      "is_open": true,
+      "service": "HTTP",
+      "banner": "Admin console",
+      "response_time": 19,
+      "vulnerabilities": []
+    },
+    {
+      "target": "198.51.100.20",
+      "port": 8081,
+      "is_open": true,
+      "service": "HTTP",
+      "banner": "Acme Widget 1.2.3",
+      "response_time": 7,
+      "vulnerabilities": []
+    }
+  ]
+}

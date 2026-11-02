@@ -94,6 +94,8 @@ test_results.*
 *.pcapng
 nmap_*
 scan_*
+# Source module, not a scan dump. The pattern above also matches this path.
+!src/scan_job.rs
 
 # ==============================================================================
 # Development and Testing
@@ -208,6 +210,11 @@ examples/*.json
 examples/*.html
 examples/*.md
 examples/output/
+# Committed report fixtures (not generated scan dumps).
+!examples/sample-scan.json
+!examples/sample-report.toml
+!examples/sample-report.pdf
+!examples/sample-logo.png
 
 # ==============================================================================
 # Development and Testing Artifacts

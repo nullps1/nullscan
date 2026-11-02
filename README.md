@@ -19,6 +19,7 @@ Maintained by Noah "Null" Weeks ([nullps1 | systems builder](https://github.com/
 - [🌐 Web Dashboard](#-web-dashboard)
 - [🚀 Installation](#-installation)
 - [🚀 Quick Start](#-quick-start)
+- [📄 Client exposure report](#-client-exposure-report)
 - [📋 Command Line Options](#-command-line-options)
 - [🏓 Ping Sweep Feature](#-ping-sweep-feature)
 - [⚡ Fast Mode Feature](#-fast-mode-feature)
@@ -44,6 +45,7 @@ Scan only systems and networks you own or have explicit permission to test. Unau
 - 🏷️ **Advanced Service Detection** - Intelligent protocol probing with confidence scoring
 - 📡 **Enhanced Banner Grabbing** - Protocol-specific probes for SSH, TLS, HTTP, databases, and more
 - 📊 **Multiple Export Formats** - JSON, Markdown, CSV, and HTML output options with IP-grouped results
+- 📄 **Client exposure PDF** - `nullscan report` builds a graded client report from a scan or a saved JSON export
 - 🛡️ **Vulnerability Assessment** - Offline CVE database checking with severity classification
 - 🎨 **Rich CLI Interface** - Progress bars and colored output
 - ⚡ **High Performance** - Built with Tokio for maximum concurrency
@@ -356,12 +358,48 @@ nullscan --target 192.168.1.0/24 --fast-mode --top100
 # Auto-sets: concurrency=1800 (12-core), timeout=95ms, quiet mode, IP-only, batched scanning
 ```
 
+## 📄 Client exposure report
+
+`nullscan report` writes a client-facing PDF. It can scan and then render, or rebuild the PDF from a JSON export so the report can be regenerated without scanning again. The generator refuses to run without an authorization reference.
+
+```bash
+# Scan, then write the PDF. Banners and vuln-check make the findings useful.
+nullscan report \
+  --config client.toml \
+  --target 203.0.113.10 \
+  --ports 22,80,443,3389 \
+  --banners --vuln-check \
+  --output exposure.pdf
+
+# Rebuild from a saved JSON export (the normal --format json file).
+nullscan --target 203.0.113.10 --ports 22,80,443 --banners --vuln-check \
+  --format json --output scan.json
+nullscan report --config client.toml --input scan.json --output exposure.pdf
+```
+
+Any field in the TOML can be overridden on the command line (`--auth-ref`, `--client`, `--signer`, `--signed-date`, `--scope`, `--logo`, `--accent`, `--retention-days`, `--insurance-appendix` / `--no-insurance-appendix`, `--rescan-offer`, `--monitoring-offer`, `--contact-name`, `--contact-email`, `--contact-phone`, `--known-mail-hosts`). `--auth-ref` satisfies the authorization check when the file has none.
+
+A worked example with a fake client and documentation-range addresses is in `examples/`:
+
+```bash
+nullscan report \
+  --config examples/sample-report.toml \
+  --input examples/sample-scan.json \
+  --output examples/sample-report.pdf
+```
+
+The grade and the severity tags follow the front-office outline. Every badge prints the letter, the word, and a shape (✔ ● ▲ ■ ✖ ○). Color is decoration. CVE lines say "may be affected, needs confirming". Times on the PDF are America/Denver. `known_mail_hosts` in the config must be the IP string stored on the open port. End-of-life hints are a short editable list in `src/report/severity.rs`, not a vendor catalog.
+
 ## 📋 Command Line Options
 
 `--target` is required for a scan. It is optional only when starting the web dashboard. Comma-separated targets are accepted (`"IP1,IP2,IP3"`).
 
 ```text
-Usage: nullscan [OPTIONS]
+Usage: nullscan [OPTIONS] [COMMAND]
+
+Commands:
+  report  Build a client-facing external exposure PDF from a live scan or a saved JSON export
+  help    Print this message or the help of the given subcommand(s)
 
 Options:
   -t, --target <TARGET>                Target IP address, hostname, or CIDR notation (e.g., 192.168.1.0/24)
