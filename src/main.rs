@@ -23,7 +23,7 @@ use scanner::{ScanConfig, ScanResult, Scanner};
 #[command(
     about = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners. Authorized use only."
 )]
-#[command(version = "1.6.0")]
+#[command(version = "1.7.0")]
 struct Args {
     /// Target IP address, hostname, or CIDR notation (e.g., 192.168.1.0/24)
     #[arg(short, long)]
@@ -158,7 +158,7 @@ async fn main() -> Result<()> {
             .init();
     }
 
-    info!("🚀 NullScan v1.6.0 - Starting port scan");
+    info!("🚀 NullScan v1.7.0 - Starting port scan");
 
     // Load vulnerability database if vuln checking is enabled
     let vuln_checker = if args.vuln_check {
