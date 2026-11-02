@@ -42,6 +42,7 @@ src/
 ├── scanner/       # TCP connect scan and ping sweep
 ├── banner/        # Protocol probes
 ├── vuln/          # Offline vuln_db.json matcher
+├── report/        # Client PDF (nullscan report)
 ├── export/        # json, markdown, csv, html
 ├── presets/       # Top 100 / top 1000 ports
 └── web/           # axum dashboard, API, and token auth
@@ -56,6 +57,10 @@ cargo run -- --web-dashboard 8080
 ```
 
 The process prints a bearer token. Open `http://127.0.0.1:8080/login` and paste it, or call the API with `Authorization: Bearer <token>`. Set `--web-token` or `NULLSCAN_WEB_TOKEN` to reuse a token. The default bind is `127.0.0.1`; any other address prints a warning.
+
+## CVE database
+
+`vuln_db.json` mixes hand-written banner patterns with a generated section from the CISA Known Exploited Vulnerabilities catalog and NVD. Refresh it with `python3 scripts/refresh-vuln-db.py`. Details are in [vuln-db.md](vuln-db.md).
 
 ## Contact
 

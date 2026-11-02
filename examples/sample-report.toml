@@ -22,7 +22,8 @@ id = "NS-DEMO-0001"
 version = "0.1"
 prepared_by = "Noah Weeks, Weeks IT Solutions"
 delivery_date = "2026-11-02"
-retention_days = 90
+# Scan data is deleted this many days after delivery, or within 3 business days on request.
+retention_days = 14
 insurance_appendix = true
 accent = "#1F4E79"
 logo_path = "examples/sample-logo.png"

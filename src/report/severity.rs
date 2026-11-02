@@ -204,10 +204,17 @@ pub fn classify(exposure: &Exposure<'_>) -> Severity {
     if is_management(exposure.port, exposure.service, exposure.banner) {
         push(Severity::Medium);
     }
-    if leaks_version(exposure.banner) || (exposure.port == 80 && exposure.cvss_scores.is_empty()) {
+    // A 3xx response is informational. It does not pick up the plain-HTTP or
+    // version-leak rules. A CVE score, critical service, cleartext login, or
+    // end-of-life banner still outranks it.
+    let redirect = is_http_redirect(exposure.banner);
+    if !redirect
+        && (leaks_version(exposure.banner)
+            || (exposure.port == 80 && exposure.cvss_scores.is_empty()))
+    {
         push(Severity::Low);
     }
-    if is_expected_quiet(exposure) {
+    if redirect || is_expected_quiet(exposure) {
         push(Severity::Info);
     }
 
@@ -292,6 +299,54 @@ fn is_expected_quiet(exposure: &Exposure<'_>) -> bool {
 
 fn leaks_version(banner: Option<&str>) -> bool {
     banner.is_some_and(has_dotted_version)
+}
+
+/// Status code from an HTTP response line in the banner, such as `HTTP/1.1 301`.
+pub fn http_status(banner: &str) -> Option<u16> {
+    let lower = banner.to_ascii_lowercase();
+    let mut rest = lower.as_str();
+    while let Some(index) = rest.find("http/") {
+        let after = &rest[index + 5..];
+        let space = after.find(char::is_whitespace)?;
+        let version = &after[..space];
+        if version.is_empty() || !version.chars().all(|ch| ch.is_ascii_digit() || ch == '.') {
+            rest = &after[space..];
+            continue;
+        }
+        let after_space = after[space..].trim_start();
+        let mut digits = String::new();
+        for ch in after_space.chars() {
+            if !ch.is_ascii_digit() {
+                break;
+            }
+            digits.push(ch);
+            if digits.len() > 3 {
+                break;
+            }
+        }
+        if digits.len() == 3 {
+            if let Ok(code) = digits.parse::<u16>() {
+                let boundary = after_space[digits.len()..].chars().next();
+                if boundary.is_none_or(|ch| !ch.is_ascii_digit()) {
+                    return Some(code);
+                }
+            }
+        }
+        let mut advanced = after_space.chars();
+        advanced.next();
+        rest = advanced.as_str();
+        if rest.is_empty() {
+            break;
+        }
+    }
+    None
+}
+
+/// True when the banner is an HTTP 3xx response, including redirects.
+pub fn is_http_redirect(banner: Option<&str>) -> bool {
+    banner
+        .and_then(http_status)
+        .is_some_and(|code| (300..400).contains(&code))
 }
 
 fn has_dotted_version(text: &str) -> bool {
@@ -573,6 +628,77 @@ mod tests {
                 false
             )),
             Severity::Low
+        );
+    }
+
+    #[test]
+    fn http_3xx_redirects_are_info() {
+        for banner in [
+            "HTTP/1.0 301 Moved Permanently",
+            "HTTP/1.1 302 Found",
+            "HTTP/1.1 303 See Other",
+            "HTTP/2 307 Temporary Redirect",
+            "HTTP/1.1 308 Permanent Redirect Server: nginx/1.24.0",
+            "HTTP/1.1 300 Multiple Choices",
+        ] {
+            assert_eq!(
+                classify(&exposure(80, Some("HTTP"), Some(banner), &[], false)),
+                Severity::Info,
+                "{banner}"
+            );
+        }
+        // A normal page on port 80 is still low. A version leak is still low.
+        assert_eq!(
+            classify(&exposure(
+                80,
+                Some("HTTP"),
+                Some("HTTP/1.1 200 OK Server: nginx"),
+                &[],
+                false
+            )),
+            Severity::Low
+        );
+        assert_eq!(
+            classify(&exposure(
+                8081,
+                Some("HTTP"),
+                Some("HTTP/1.1 200 OK Server: nginx/1.24.0"),
+                &[],
+                false
+            )),
+            Severity::Low
+        );
+        // A redirect does not hide a critical CVE, an end-of-life banner, or a
+        // management port.
+        assert_eq!(
+            classify(&exposure(
+                80,
+                Some("HTTP"),
+                Some("HTTP/1.1 301 Moved Permanently Server: Apache/2.4.49"),
+                &[9.8],
+                false
+            )),
+            Severity::Critical
+        );
+        assert_eq!(
+            classify(&exposure(
+                80,
+                Some("HTTP"),
+                Some("HTTP/1.1 301 Moved Permanently Server: Apache/2.2.34"),
+                &[],
+                false
+            )),
+            Severity::High
+        );
+        assert_eq!(
+            classify(&exposure(
+                8080,
+                Some("HTTP"),
+                Some("HTTP/1.1 302 Found"),
+                &[],
+                false
+            )),
+            Severity::Medium
         );
     }
 

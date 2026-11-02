@@ -120,11 +120,7 @@ impl ScanJob {
                     &self.target,
                     std::time::Duration::from_secs(0),
                 );
-                annotate(
-                    &mut info,
-                    started,
-                    vuln_note(self.vuln_check, vuln_checker.as_deref()),
-                );
+                annotate(&mut info, started, vuln_note(vuln_checker.as_deref()));
                 return Ok(CompletedScan {
                     results: Vec::new(),
                     info,
@@ -188,7 +184,7 @@ impl ScanJob {
 
         let all_results = try_join_all(scan_futures).await?;
         let scan_duration = start_time.elapsed();
-        let note = vuln_note(self.vuln_check, vuln_checker.as_deref());
+        let note = vuln_note(vuln_checker.as_deref());
 
         let (results, mut info) = if final_targets.len() == 1 {
             let (target_str, results) = &all_results[0];
@@ -227,23 +223,17 @@ struct VulnNote {
     version: Option<String>,
 }
 
-fn vuln_note(requested: bool, checker: Option<&vuln::VulnChecker>) -> VulnNote {
-    match (requested, checker) {
-        (true, Some(checker)) => {
-            let stats = checker.get_stats();
-            VulnNote {
-                updated: stats.last_updated,
-                version: Some(stats.version),
-            }
-        }
-        (true, None) => VulnNote {
-            updated: "not recorded".to_string(),
-            version: None,
-        },
-        (false, _) => VulnNote {
-            updated: "not run".to_string(),
-            version: None,
-        },
+fn vuln_note(checker: Option<&vuln::VulnChecker>) -> VulnNote {
+    if let Some(checker) = checker {
+        let stats = checker.get_stats();
+        return VulnNote {
+            updated: stats.last_updated,
+            version: Some(stats.version),
+        };
+    }
+    VulnNote {
+        updated: vuln::bundled_last_updated().to_string(),
+        version: Some(vuln::bundled_version().to_string()),
     }
 }
 

@@ -1,17 +1,31 @@
 {
-  "version": "2.0.1",
-  "last_updated": "2025-07-13",
-  "description": "Comprehensive vulnerability database for NullScan covering 50+ CVEs across SSH, HTTP, databases, remote access, and network services (duplicates removed)",
-  "total_patterns": 44,
+  "version": "2.1.0",
+  "last_updated": "2026-10-30",
+  "description": "Vulnerability database for nullscan. Hand-written banner patterns are kept. Records marked cisa-kev+nvd were refreshed from CISA KEV 2026.10.30 (2026-10-30) with descriptions and CVSS scores from NVD. A banner match means the service may be affected and needs confirming.",
+  "total_patterns": 53,
   "coverage": {
-    "SSH": 4,
-    "HTTP": 10,
-    "Database": 5,
-    "FTP": 2,
-    "DNS": 2,
+    "SSH": 5,
+    "HTTP": 14,
+    "Database": 8,
     "SMTP": 1,
-    "Remote_Access": 8,
-    "Network_Services": 12
+    "FTP": 3,
+    "SMB": 2,
+    "IMAP": 2,
+    "DNS": 2,
+    "Telnet": 1,
+    "Rlogin": 1,
+    "RSH": 1,
+    "SNMP": 1,
+    "NTP": 1,
+    "RDP": 1,
+    "VNC": 1,
+    "X11": 1,
+    "Cache": 1,
+    "Search": 1,
+    "CI/CD": 1,
+    "Remote Access": 1,
+    "VPN": 3,
+    "TLS": 1
   },
   "patterns": [
     {
@@ -98,7 +112,6 @@
         }
       ]
     },
-
     {
       "pattern": "contains:apache/2.4.29",
       "service_type": "HTTP",
@@ -196,7 +209,6 @@
         }
       ]
     },
-
     {
       "pattern": "openssh 6.6",
       "service_type": "SSH",
@@ -229,7 +241,6 @@
         }
       ]
     },
-
     {
       "pattern": "nginx 1.16.1",
       "service_type": "HTTP",
@@ -246,7 +257,6 @@
         }
       ]
     },
-
     {
       "pattern": "mysql 5.7.33",
       "service_type": "Database",
@@ -263,7 +273,6 @@
         }
       ]
     },
-
     {
       "pattern": "contains:ssh-2.0-openssh_7.4",
       "service_type": "SSH",
@@ -280,7 +289,6 @@
         }
       ]
     },
-
     {
       "pattern": "contains:proftpd",
       "service_type": "FTP",
@@ -473,7 +481,6 @@
         }
       ]
     },
-
     {
       "pattern": "contains:ms-wbt-server",
       "service_type": "RDP",
@@ -730,6 +737,619 @@
           ]
         }
       ]
+    },
+    {
+      "pattern": "contains:apache/",
+      "service_type": "HTTP",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-42356",
+          "description": "Deployment of wrong handler vulnerability in Apache HTTP Server allows the target of some internal redirects from CGI programs to also be treated as CGI and executed. The target must already be in a directory enabled for CGI and have no other extension understood by mod_mime. This issue affects Apache HTTP Server: from 2.4.60 through 2.4.68.",
+          "severity": "Low",
+          "cvss_score": 3.7,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-42356"
+          ]
+        },
+        {
+          "cve": "CVE-2026-42528",
+          "description": "A memory calculation bug in mod_dav in Apache httpd 2.4.67 and earlier allows an attacker with permission to create WebDAV locks to crash server child processes. Users are recommended to upgrade to version 2.4.69, which fixes this issue",
+          "severity": "Medium",
+          "cvss_score": 4.3,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-42528"
+          ]
+        },
+        {
+          "cve": "CVE-2026-46729",
+          "description": "NULL Pointer Dereference vulnerability in Apache HTTP Servers mod_heartmonitor over unicast listener. This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-46729"
+          ]
+        },
+        {
+          "cve": "CVE-2026-47360",
+          "description": "Exposure of Sensitive Information to an Unauthorized Actor vulnerability in Apache HTTP Server's mod_session_cookie module. When SessionCookieRemove changes across internal redirects, the session cookie may still be passed to a backend server. This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-47360"
+          ]
+        },
+        {
+          "cve": "CVE-2026-48005",
+          "description": "Missing authentication checks in mod_auth_digest in Apache Software Foundation Apache HTTP Server before 2.4.69 on all platforms allows an unauthenticated remote client to cause a denial of service (forced re-authentication) via forged Authorization headers when Digest authentication is enabled with AuthDigestNcCheck . Users are recommended to upgrade to version 2.4.69, which fixes this issue.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-48005"
+          ]
+        },
+        {
+          "cve": "CVE-2026-56153",
+          "description": "Out-of-bounds Write vulnerability in Apache HTTP Server's mod_charset_lite. This issue affects Apache HTTP Server: from 2.4.0 through 2.4.68.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-10-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-56153"
+          ]
+        },
+        {
+          "cve": "CVE-2024-38475",
+          "description": "Improper escaping of output in mod_rewrite in Apache HTTP Server 2.4.59 and earlier allows an attacker to map URLs to filesystem locations that are permitted to be served by the server but are not intentionally/directly reachable by any URL, resulting in code execution or source code disclosure. Substitutions in server context that use a backreferences or variables as the first segment of the substitution are affected. Some unsafe RewiteRules will be broken by this change and the rewrite flag \"…",
+          "severity": "Critical",
+          "cvss_score": 9.1,
+          "published": "2024-07-01",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2024-38475",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:mongodb",
+      "service_type": "Database",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-89099",
+          "description": "A race condition in the document value layer of MongoDB Server can allow concurrent server threads to operate on the same internal memory without synchronization, leading to memory corruption. An authenticated user holding ordinary read-write privileges on a database may be able to trigger this condition over the normal client protocol, resulting in server termination and potential corruption of process memory with user-influenced content. Successful use of this issue may impact the confidentia…",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-09-11",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-89099"
+          ]
+        },
+        {
+          "cve": "CVE-2026-82052",
+          "description": "The $regexFindAll expression can be used by an authenticated user who can run aggregation pipeline stages to crash a MongoDB server (mongod). Under certain specific conditions the regex match can start in the middle of a multi-code-unit character, triggering an assertion during query execution.",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2026-09-08",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-82052"
+          ]
+        },
+        {
+          "cve": "CVE-2026-82053",
+          "description": "A security issue exists in MongoDB's LDAP authorization integration where pooled LDAP connections can retain stale authentication identities after user authentication under certain configurations. Subsequent authorization queries may execute under an unintended LDAP identity rather than the expected one. This can result in incorrect role assignments based on the LDAP directory's access control configuration, potentially allowing an authenticated user to acquire elevated privileges that were not…",
+          "severity": "High",
+          "cvss_score": 8.1,
+          "published": "2026-09-08",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-82053"
+          ]
+        },
+        {
+          "cve": "CVE-2026-82054",
+          "description": "A security issue exists in MongoDB server's JSON Pointer parser used during $jsonSchema query filter processing. When a find command includes a specially crafted $jsonSchema filter field, the parser processes the input without enforcing adequate limits on iteration count or total allocation size, resulting in significant memory amplification. Under concurrent request load, the cumulative memory consumption can exhaust available heap memory, causing the server's out-of-memory handler to terminat…",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2026-09-08",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-82054"
+          ]
+        },
+        {
+          "cve": "CVE-2026-82055",
+          "description": "A security issue exists in MongoDB's 2dsphere index key generation that can cause a server crash due to a null pointer dereference. When a specially crafted GeoJSON document is inserted into a collection with a 2dsphere index, an inconsistency in geometry parsing can leave an internal object in an invalid, partially initialized state. During subsequent index key generation, access to this improperly initialized object results in a null pointer dereference that terminates the mongod process. An…",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2026-09-08",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-82055"
+          ]
+        },
+        {
+          "cve": "CVE-2026-82056",
+          "description": "A race condition in MongoDB server's text index query parsing can cause a heap use-after-free read when handling upsert retry paths. Under certain concurrent index lifecycle operations, a raw pointer to internal text index metadata may be dereferenced after the underlying structures have been freed, leading to a server crash. An authenticated user with readWrite privileges can trigger this condition through specific concurrent text-search and index management operations, resulting in denial of…",
+          "severity": "Medium",
+          "cvss_score": 5.3,
+          "published": "2026-09-08",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-82056"
+          ]
+        },
+        {
+          "cve": "CVE-2025-14847",
+          "description": "Mismatched length fields in Zlib compressed protocol headers may allow a read of uninitialized heap memory by an unauthenticated client. This issue affects all MongoDB Server v7.0 prior to 7.0.28 versions, MongoDB Server v8.0 versions prior to 8.0.17, MongoDB Server v8.2 versions prior to 8.2.3, MongoDB Server v6.0 versions prior to 6.0.27, MongoDB Server v5.0 versions prior to 5.0.32, MongoDB Server v4.4 versions prior to 4.4.30, MongoDB Server v4.2 versions greater than or equal to 4.2.0, Mon…",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2025-12-19",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-14847",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:mysql",
+      "service_type": "Database",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-21964",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: Thread Pooling). Supported versions that are affected are 8.0.0-8.0.44, 8.4.0-8.4.7 and 9.0.0-9.5.0. Easily exploitable vulnerability allows high privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 4.9 (Avai…",
+          "severity": "Medium",
+          "cvss_score": 4.9,
+          "published": "2026-01-20",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-21964"
+          ]
+        },
+        {
+          "cve": "CVE-2025-50076",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: DML). Supported versions that are affected are 8.0.0-8.0.25. Easily exploitable vulnerability allows low privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 6.5 (Availability impacts). CVSS Vector: (CVSS:3.1…",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2025-07-15",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-50076"
+          ]
+        },
+        {
+          "cve": "CVE-2025-50077",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: InnoDB). Supported versions that are affected are 8.0.0-8.0.42, 8.4.0-8.4.5 and 9.0.0-9.3.0. Easily exploitable vulnerability allows high privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 4.9 (Availability impacts…",
+          "severity": "Medium",
+          "cvss_score": 4.9,
+          "published": "2025-07-15",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-50077"
+          ]
+        },
+        {
+          "cve": "CVE-2025-50078",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: DML). Supported versions that are affected are 8.0.0-8.0.42, 8.4.0-8.4.5 and 9.0.0-9.3.0. Easily exploitable vulnerability allows low privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 6.5 (Availability imp…",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2025-07-15",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-50078"
+          ]
+        },
+        {
+          "cve": "CVE-2025-50079",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: Optimizer). Supported versions that are affected are 8.0.0-8.0.42, 8.4.0-8.4.5 and 9.0.0-9.3.0. Easily exploitable vulnerability allows high privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 4.9 (Availabil…",
+          "severity": "Medium",
+          "cvss_score": 4.9,
+          "published": "2025-07-15",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-50079"
+          ]
+        },
+        {
+          "cve": "CVE-2025-50080",
+          "description": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: Stored Procedure). Supported versions that are affected are 8.0.0-8.0.42, 8.4.0-8.4.5 and 9.0.0-9.3.0. Easily exploitable vulnerability allows high privileged attacker with network access via multiple protocols to compromise MySQL Server. Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of MySQL Server. CVSS 3.1 Base Score 4.9 (Av…",
+          "severity": "Medium",
+          "cvss_score": 4.9,
+          "published": "2025-07-15",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-50080"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:nginx",
+      "service_type": "HTTP",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2025-23419",
+          "description": "When multiple server blocks are configured to share the same IP address and port, an attacker can use session resumption to bypass client certificate authentication requirements on these servers. This vulnerability arises when TLS Session Tickets https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_session_ticket_key are used and/or the SSL session cache https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_session_cache are used in the default server and the default server is perf…",
+          "severity": "Medium",
+          "cvss_score": 4.3,
+          "published": "2025-02-05",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-23419"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:openssh",
+      "service_type": "SSH",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-106583",
+          "description": "In ssh in OpenSSH before 10.6, a $ or \\ character can occur in a command-line username, leading to injection.",
+          "severity": "Low",
+          "cvss_score": 2.5,
+          "published": "2026-10-07",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106583"
+          ]
+        },
+        {
+          "cve": "CVE-2026-106552",
+          "description": "In sftp in OpenSSH before 10.6, a server can trigger directory traversal (causing files to be written to unintended locations) during a recursive copy operation.",
+          "severity": "Medium",
+          "cvss_score": 4.2,
+          "published": "2026-10-06",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106552"
+          ]
+        },
+        {
+          "cve": "CVE-2026-106553",
+          "description": "In sshd in OpenSSH before 10.6, credentials can incorrectly persist after failure of a GSSAPIAuthentication authentication attempt.",
+          "severity": "Low",
+          "cvss_score": 2.2,
+          "published": "2026-10-06",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106553"
+          ]
+        },
+        {
+          "cve": "CVE-2026-106555",
+          "description": "In sshd in OpenSSH before 10.6, GSSAPIAuthentication authentication state can incorrectly be persisted across authentication attempts.",
+          "severity": "Low",
+          "cvss_score": 2.2,
+          "published": "2026-10-06",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106555"
+          ]
+        },
+        {
+          "cve": "CVE-2026-106582",
+          "description": "In sshd and ssh in OpenSSH before 10.6, an LZ77 dictionary coder can be used even though this is contraindicated by the arXiv 2609.07709 \"Crossing the Streams\" findings.",
+          "severity": "Low",
+          "cvss_score": 3.7,
+          "published": "2026-10-06",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106582"
+          ]
+        },
+        {
+          "cve": "CVE-2026-106584",
+          "description": "In ssh-keygen in OpenSSH before 10.6, certificates could have incorrect expiration times because of Daylight Saving mishandling. There can be a slightly more severe effect on users in certain Antarctic locations.",
+          "severity": "Low",
+          "cvss_score": 2.5,
+          "published": "2026-10-06",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-106584"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:openssl",
+      "service_type": "TLS",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-35189",
+          "description": "Issue summary: A certificate with many nameRelativeToCRLIssuer CRL distribution points causes disproportionate heap growth when OpenSSL caches X.509 extensions. Impact summary: Receiving a crafted certificate from a malicious peer can lead to significant memory pressure and possible Denial of Service in clients or in servers that solicit client certificates. CWE: CWE-770: Allocation of Resources Without Limits or Throttling Description: A certificate or a set of certificates that fits under the…",
+          "severity": "Medium",
+          "cvss_score": 5.3,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-35189"
+          ]
+        },
+        {
+          "cve": "CVE-2026-35191",
+          "description": "Issue summary: The OpenSSL QUIC server, when configured to not preform address validation, can be forced to count incoming packets multiple times in its unvalidated credit computation, leading to a violation of the RFC 9000 unvalidated connection amplification limit of 3 times the amount of data received. Impact summary: A remote attacker able to spoof packets to a server using the OpenSSL QUIC implementation might use the server for an amplification of a DDoS attack. CWE: CWE-440: Expected Beh…",
+          "severity": "Low",
+          "cvss_score": 3.7,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-35191"
+          ]
+        },
+        {
+          "cve": "CVE-2026-42772",
+          "description": "Issue summary: The QUIC stream reassembly algorithm performance deteriorates progressively as packets are arriving out of order. The worst case has a quadratic complexity proportional to the number of stream frames kept in the buffer for the received stream data. Impact summary: A remote QUIC peer that completes the handshake can create a connection-scoped CPU pressure and potentially a Denial of Service using compliant STREAM frames inside the advertised receive window, with low attacker bandw…",
+          "severity": "Medium",
+          "cvss_score": 5.3,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-42772"
+          ]
+        },
+        {
+          "cve": "CVE-2026-54872",
+          "description": "Issue summary: The generic elliptic-curve scalar multiplication used for ECDSA and SM2 signature operations with curves that do not have a dedicated implementation leaks information about the secret nonce through timing. Impact summary: An attacker able to measure signing times may learn information about the per-signature secret nonce, which over many signatures can, via a lattice / Hidden Number Problem attack, lead to recovery of the private key. CWE: CWE-208: Observable Timing Discrepancy D…",
+          "severity": "Low",
+          "cvss_score": 3.7,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-54872"
+          ]
+        },
+        {
+          "cve": "CVE-2026-54873",
+          "description": "Issue summary: QUIC process may keep memory for QUIC packet buffer for much longer period than necessary. Impact summary: Remote peer can exploit this vulnerability by sending maliciously crafted packets, making the local QUIC stack to keep the memory for packet buffers allocated. The time for which the memory remains allocated is entirely under the control of the potentially malicious remote peer. CWE: CWE-770: Allocation of Resources Without Limits or Throttling Description: To save copy oper…",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-54873"
+          ]
+        },
+        {
+          "cve": "CVE-2026-54875",
+          "description": "Issue summary: A non-constant-time optimized implementation of scalar point multiplication is used for SM2 private key operations on ARM64 and RISC-V platforms. Impact summary: An attacker able to measure the time taken by, or to observe the cache-line access pattern of SM2 signing or decryption on an affected platform can learn information about the secret scalar. CWE: CWE-208: Observable Timing Discrepancy Description: On ARM64 and RISC-V processors, the SM2 curve uses an optimized scalar mul…",
+          "severity": "Low",
+          "cvss_score": 3.7,
+          "published": "2026-09-29",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-54875"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:php/",
+      "service_type": "HTTP",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-109618",
+          "description": "PHP uses longjmp() for out-of-memory (OOM) errors to exit the current context and abort handling of the request. Some contexts may not properly account for this scenario and leave request memory in an uninitialized state before performing an allocation. The subsequent request cleanup procedure may read or branch on this memory. Multiple OOM strategies can consistently trigger this condition and lead to remote code execution (RCE).",
+          "severity": "Critical",
+          "cvss_score": 9.8,
+          "published": "2026-10-21",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-109618",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        },
+        {
+          "cve": "CVE-2026-109619",
+          "description": "PHP has various global state that temporarily points into request memory. In some scenarios, global state may not be correctly reset, or may be repopulated after being reset. The global state may then refer to request memory even after it has been freed. Subsequent requests may read or branch on this stale state before it is fully initialized. Multiple strategies can trigger this condition and produce remote code execution (RCE).",
+          "severity": "High",
+          "cvss_score": 8.1,
+          "published": "2026-10-21",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-109619",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        },
+        {
+          "cve": "CVE-2026-93682",
+          "description": "When the HTTP stream wrapper follows a redirect and the response carries a Location header with an empty value, the redirect code reads one byte past the end of the heap buffer holding the location. The value of that out-of-bounds byte decides which redirect target is built, so a malicious server controls whether the client is sent to the host root or to the current directory.",
+          "severity": "Medium",
+          "cvss_score": 5.8,
+          "published": "2026-09-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-93682"
+          ]
+        },
+        {
+          "cve": "CVE-2025-14181",
+          "description": "The SOAP HTTP client guards its response buffer growth with a check that relies on signed integer overflow, which is undefined behaviour and is not guaranteed to trigger. When the check is optimised away, a malicious SOAP server can make the client allocate a buffer far smaller than the data it then writes into it, producing a heap buffer overflow.",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2026-09-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-14181"
+          ]
+        },
+        {
+          "cve": "CVE-2025-1218",
+          "description": "The mysqlnd wire protocol parser reads fields out of server packets before checking that the packet still holds enough bytes for them. A malicious or compromised MySQL server can send a truncated packet and make the client read past the end of the packet buffer, which is undefined behaviour and can crash the process.",
+          "severity": "Low",
+          "cvss_score": 3.4,
+          "published": "2026-09-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-1218"
+          ]
+        },
+        {
+          "cve": "CVE-2026-17545",
+          "description": "On Windows, PHP's filesystem and stream APIs do not reject reserved device names such as CON, PRN, AUX, NUL, COM1 to COM9, LPT1 to LPT9, CONIN$ and CONOUT$ when they appear as a component of a path. An attacker-controlled filename therefore reaches CreateFileW() and opens a device instead of the regular file the application expected, which can block or hang the request and exhaust worker processes.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-09-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-17545"
+          ]
+        },
+        {
+          "cve": "CVE-2024-4577",
+          "description": "In PHP versions 8.1.* before 8.1.29, 8.2.* before 8.2.20, 8.3.* before 8.3.8, when using Apache and PHP-CGI on Windows, if the system is set up to use certain code pages, Windows may use \"Best-Fit\" behavior to replace characters in command line given to Win32 API functions. PHP CGI module may misinterpret those characters as PHP options, which may allow a malicious user to pass options to PHP binary being run, and thus reveal the source code of scripts, run arbitrary PHP code on the server, etc.",
+          "severity": "Critical",
+          "cvss_score": 9.8,
+          "published": "2024-06-09",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2024-4577",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:postgresql",
+      "service_type": "Database",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-14662",
+          "description": "Integer wraparound in PostgreSQL tsvector and tsquery data type functions allows an unprivileged database user to cause the server to undersize an allocation and write out-of-bounds, via crafted large inputs. This may execute arbitrary code as the operating system user running the database. These types are typically sourced from application logic, not taken from the application's user. Hence, application users attacking the database, through the application as a conduit, are unlikely. CVE-2026-…",
+          "severity": "High",
+          "cvss_score": 8.8,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14662"
+          ]
+        },
+        {
+          "cve": "CVE-2026-14663",
+          "description": "Cleartext storage in PostgreSQL pgcrypto disabled ciphers allows a user to recover cleartext, via direct observation of the faulty ciphertext. The OpenSSL version and OpenSSL configuration determine the disabled ciphers. If the application accepts encrypted data as input, decryption will succeed even with the wrong key. This in turn loses the modest protection from the Modification Detection Code (MDC). Affected functions are pgp_sym_encrypt, pgp_sym_decrypt, pgp_pub_encrypt, pgp_pub_decrypt, p…",
+          "severity": "Medium",
+          "cvss_score": 6.5,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14663"
+          ]
+        },
+        {
+          "cve": "CVE-2026-14664",
+          "description": "Heap buffer overflow in PostgreSQL regexp allows the query author to execute arbitrary code as the operating system user running the database, via text that would not pass encoding validation. This shares heritage with CVE-2026-2006, but this case involved unanticipated data growth when round-tripped through pg_wchar. Versions before PostgreSQL 18.6, 17.11, 16.15, 15.19, and 14.24 are affected.",
+          "severity": "High",
+          "cvss_score": 8.8,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14664"
+          ]
+        },
+        {
+          "cve": "CVE-2026-14666",
+          "description": "Incomplete tracking in PostgreSQL of changes to role membership, role attributes, and database ownership allows a query to continue using cached row-level security policies after those changes require a different policy, via plan reuse. Stale policies continue until some other event invalidates the cache or connection termination ends the session. This permits a user to complete reads and modifications that were recently permitted but now forbidden. An attacker must tailor an attack to a partic…",
+          "severity": "Medium",
+          "cvss_score": 4.2,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14666"
+          ]
+        },
+        {
+          "cve": "CVE-2026-14668",
+          "description": "Type confusion regarding input of PostgreSQL ctid data type selectivity estimator allows an object creator to view a calculation derived from the value of an arbitrary 4-byte span of memory, via a chosen non-ctid input. While the calculation loses precision, substantial memory value recovery appears possible. Versions before PostgreSQL 18.6, 17.11, 16.15, 15.19, and 14.24 are affected.",
+          "severity": "High",
+          "cvss_score": 8.1,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14668"
+          ]
+        },
+        {
+          "cve": "CVE-2026-14669",
+          "description": "Heap buffer overflow in PostgreSQL to_char(timestamptz) allows the party choosing the timezone to execute arbitrary code as the operating system user running the database, via a long POSIX timezone abbreviation. Versions before PostgreSQL 18.6, 17.11, 16.15, 15.19, and 14.24 are affected.",
+          "severity": "High",
+          "cvss_score": 8.8,
+          "published": "2026-08-13",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-14669"
+          ]
+        }
+      ]
+    },
+    {
+      "pattern": "contains:tomcat",
+      "service_type": "HTTP",
+      "source": "cisa-kev+nvd",
+      "vulnerabilities": [
+        {
+          "cve": "CVE-2026-65182",
+          "description": "Improper Access Control, Incorrect Authorization vulnerability in Apache Tomcat leads to security constraint bypass if a constraint for a longer path is specified before a more restrictive constraint for a shorter sub-path. This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.24, from 10.1.0-M1 through 10.1.57, from 9.0.0.M1 through 9.0.120, from 8.5.0 through 8.5.100, from 7.0.0 through 7.0.109. Users are recommended to upgrade to version 11.0.25, 10.1.58, 9.0.121, which fixes the iss…",
+          "severity": "Critical",
+          "cvss_score": 9.1,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65182"
+          ]
+        },
+        {
+          "cve": "CVE-2026-65183",
+          "description": "Time-of-check Time-of-use (TOCTOU) Race Condition vulnerability in Apache Tomcat when creating unix domain sockets allows an unauthorised local user to access the unix domain socket. This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.24, from 10.1.0-M1 through 10.1.57, from 9.0.42 through 9.0.120. Users are recommended to upgrade to version 11.0.25, 10.1.58, 9.0.121, which fixes the issue.",
+          "severity": "High",
+          "cvss_score": 8.1,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65183"
+          ]
+        },
+        {
+          "cve": "CVE-2026-65637",
+          "description": "Improper Input Validation vulnerability in Apache Tomcat due to incomplete fix for CVE-2026-32990. This issue affects Apache Tomcat: from 11.0.20 through 11.0.24, from 10.1.53 through 10.1.57, from 9.0.115 through 9.0.120. Users are recommended to upgrade to version 11.0.25, 10.1.58 or 9.0.121, which fix the issue.",
+          "severity": "Critical",
+          "cvss_score": 9.8,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65637"
+          ]
+        },
+        {
+          "cve": "CVE-2026-65905",
+          "description": "Authentication Bypass by Capture-replay vulnerability in Apache Tomcat's DIGEST authenticator. If, before windowSize requests have been made, a client makes a DIGEST authenticated request with a nonceCount on the upper boundary of the replay window then that request is replayable once only while the associated nonceCount remains within the replay window. This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.24, from 10.1.0-M1 through 10.1.57, from 9.0.0.M1 through 9.0.120. The following…",
+          "severity": "Critical",
+          "cvss_score": 9.8,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65905"
+          ]
+        },
+        {
+          "cve": "CVE-2026-65927",
+          "description": "Off-by-one Error vulnerability in Apache Tomcat impacting the [N] flag on the rewrite valves causes rewrite processing to restart at the second rule rather than the first rule. This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.24, from 10.1.0-M1 through 10.1.57, from 9.0.0.M1 through 9.0.120. The following versions were EOL at the time the CVE was created but are known to be affected: from 8.5.0 through 8.5.100. Other unsupported versions may also be affected. Users are recommended…",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-65927"
+          ]
+        },
+        {
+          "cve": "CVE-2026-66422",
+          "description": "Improper Authorization vulnerability in Apache Tomcat cause by security-role-ref definitions being incorrectly used as role aliases within the Realm in additional to the correct usage with Request.isUserInRole(). This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.24, from 10.1.0-M1 through 10.1.57, from 9.0.25 through 9.0.120. The following versions were EOL at the time the CVE was created but are known to be affected: from 8.5.46 through 8.5.100, from 7.0.97 through 7.0.109. Other u…",
+          "severity": "High",
+          "cvss_score": 8.1,
+          "published": "2026-08-25",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-66422"
+          ]
+        },
+        {
+          "cve": "CVE-2026-34486",
+          "description": "Missing Encryption of Sensitive Data vulnerability in Apache Tomcat due to the fix for CVE-2026-29146 allowing the bypass of the EncryptInterceptor. This issue affects Apache Tomcat: 11.0.20, 10.1.53, 9.0.116. Users are recommended to upgrade to version 11.0.21, 10.1.54 or 9.0.117, which fix the issue.",
+          "severity": "High",
+          "cvss_score": 7.5,
+          "published": "2026-04-09",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-34486",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        },
+        {
+          "cve": "CVE-2025-24813",
+          "description": "Path Equivalence: 'file.Name' (Internal Dot) leading to Remote Code Execution and/or Information disclosure and/or malicious content added to uploaded files via write enabled Default Servlet in Apache Tomcat. This issue affects Apache Tomcat: from 11.0.0-M1 through 11.0.2, from 10.1.0-M1 through 10.1.34, from 9.0.0.M1 through 9.0.98. The following versions were EOL at the time the CVE was created but are known to be affected: 8.5.0 though 8.5.100. Other, older, EOL versions may also be affected…",
+          "severity": "Critical",
+          "cvss_score": 9.8,
+          "published": "2025-03-10",
+          "references": [
+            "https://nvd.nist.gov/vuln/detail/CVE-2025-24813",
+            "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+          ]
+        }
+      ]
     }
-  ]
+  ],
+  "source": "Hand-written banner patterns plus records refreshed from the CISA Known Exploited Vulnerabilities catalog 2026.10.30 (2026-10-30) and NVD CVE API 2.0",
+  "source_url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+  "nvd_source_url": "https://services.nvd.nist.gov/rest/json/cves/2.0"
 }

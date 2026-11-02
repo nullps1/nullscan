@@ -1,0 +1,35 @@
+# Built-in --demo report. Every address is in 203.0.113.0/24 (RFC 5737).
+# `nullscan report --demo --output exposure.pdf` reads this file from the binary.
+
+[client]
+legal_name = "Documentation Range Holdings LLC"
+contact = "Pat Example, Owner, pat.example@example.test"
+
+[authorization]
+reference = "AUTH-DEMO-2026-0142"
+signer_name = "Pat Example"
+signer_title = "Owner"
+signed_date = "2026-10-20"
+
+[scope]
+summary = "Client-owned addresses in 203.0.113.0/24 only. No other networks were in scope."
+assets = ["203.0.113.10", "203.0.113.20"]
+known_mail_hosts = ["203.0.113.20"]
+
+[report]
+id = "NS-DEMO-0001"
+version = "0.1"
+prepared_by = "Noah Weeks, Weeks IT Solutions"
+delivery_date = "2026-11-02"
+retention_days = 14
+insurance_appendix = true
+accent = "#1F4E79"
+
+[contact]
+name = "Noah Weeks"
+email = "noah@weeksitsolutions.com"
+phone = "(000) 000-0000"
+
+[offers]
+rescan = "Fixed something? We'll rescan the same scope once within 60 days so you can see the grade improve."
+monitoring = "Want us to keep watch? Monthly monitoring checks the same public IPs and alerts you if something new opens up."

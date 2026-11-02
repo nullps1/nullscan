@@ -20,6 +20,7 @@ pub struct ReportModel {
     pub findings: Vec<Finding>,
     pub appendix: Vec<RawRow>,
     pub top_actions: Vec<String>,
+    pub summary_sentence: String,
     pub disclaimers: Vec<String>,
     pub summary: ScanSummary,
 }
@@ -180,9 +181,31 @@ pub fn assemble(
         findings,
         appendix,
         top_actions,
+        summary_sentence: summary_sentence(&grade, &counts),
         disclaimers,
         summary,
     })
+}
+
+/// One sentence for the cover. The letter, the word, and the shape are all in the text.
+pub fn summary_sentence(grade: &Grade, counts: &SeverityCounts) -> String {
+    format!(
+        "Grade {} {} ({}): {} critical, {} high, {} medium, {} low, and {} informational.",
+        grade.letter,
+        grade.icon,
+        grade.word,
+        counts.critical,
+        counts.high,
+        counts.medium,
+        counts.low,
+        counts.info
+    )
+}
+
+/// The retention sentence printed in the disclaimer. `days` comes from the TOML.
+pub fn retention_clause(days: u32) -> String {
+    let unit = if days == 1 { "day" } else { "days" };
+    format!("deleted {days} {unit} after report delivery, or within 3 business days on request")
 }
 
 fn build_finding(config: &ResolvedConfig, result: &ScanResult) -> BuiltFinding {
@@ -352,12 +375,12 @@ fn truncate(text: &str, max_chars: usize) -> String {
 fn summarize(config: &ResolvedConfig, info: &HashMap<String, String>) -> ScanSummary {
     let (window_start, window_end) = scan_window(info);
 
-    let vuln_db_date = info
-        .get("vuln_db_updated")
-        .filter(|value| !value.trim().is_empty())
-        .cloned()
-        .or_else(vuln_db_from_local_file)
-        .unwrap_or_else(|| "not recorded".to_string());
+    let vuln_db_date = usable_cve_date(&config.cve_db_date)
+        .or_else(|| {
+            info.get("vuln_db_updated")
+                .and_then(|value| usable_cve_date(value))
+        })
+        .unwrap_or_else(|| crate::vuln::bundled_last_updated().to_string());
 
     let nullscan_version = info
         .get("nullscan_version")
@@ -454,13 +477,22 @@ fn parse_loose_duration(value: &str) -> Option<std::time::Duration> {
     None
 }
 
-fn vuln_db_from_local_file() -> Option<String> {
-    let text = std::fs::read_to_string("vuln_db.json").ok()?;
-    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    let updated = value.get("last_updated")?.as_str()?.to_string();
-    Some(format!(
-        "{updated} (from vuln_db.json on this machine; not stored with the scan)"
-    ))
+/// A date worth printing. Placeholder notes such as "not recorded" are skipped.
+fn usable_cve_date(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Dates such as "November 2, 2026" are accepted by the config parser.
+    // Try the whole string before the first word, or "November" is all that remains.
+    if super::config::parse_calendar_date(trimmed).is_some() {
+        return Some(trimmed.to_string());
+    }
+    let token = trimmed.split_whitespace().next().unwrap_or(trimmed);
+    if token != trimmed && super::config::parse_calendar_date(token).is_some() {
+        return Some(token.to_string());
+    }
+    None
 }
 
 pub fn fill_report_id(config: &mut ResolvedConfig, info: &HashMap<String, String>) {
@@ -513,8 +545,8 @@ fn disclaimers(config: &ResolvedConfig, summary: &ScanSummary) -> Vec<String> {
             config.auth_ref
         ),
         format!(
-            "Confidential: prepared solely for {client}. Scan data is retained for {} days, then deleted.",
-            config.retention_days
+            "Confidential: prepared solely for {client}. Scan data is {}.",
+            retention_clause(config.retention_days)
         ),
         "Not legal advice.".to_string(),
     ]
@@ -760,5 +792,86 @@ known_mail_hosts = ["198.51.100.20"]
         assert_eq!(model.grade.letter, 'A');
         assert!(model.findings.is_empty());
         assert!(model.fix_first.is_empty());
+    }
+
+    #[test]
+    fn summary_sentence_includes_the_grade_shape() {
+        let sentence = summary_sentence(
+            &severity::overall_grade(&SeverityCounts {
+                critical: 1,
+                high: 0,
+                medium: 2,
+                low: 0,
+                info: 3,
+            }),
+            &SeverityCounts {
+                critical: 1,
+                high: 0,
+                medium: 2,
+                low: 0,
+                info: 3,
+            },
+        );
+        assert_eq!(
+            sentence,
+            "Grade F ✖ (Act now): 1 critical, 0 high, 2 medium, 0 low, and 3 informational."
+        );
+        assert!(sentence.contains('✖'));
+    }
+
+    #[test]
+    fn retention_clause_uses_fourteen_days_by_default() {
+        let model = assemble(&config(), &HashMap::new(), &[]).unwrap();
+        let text = model.disclaimers.join("\n");
+        assert!(
+            text.contains(
+                "deleted 14 days after report delivery, or within 3 business days on request"
+            ),
+            "{text}"
+        );
+        assert!(!text.contains("90 days"));
+    }
+
+    #[test]
+    fn cve_database_date_falls_back_to_the_bundled_database() {
+        let model = assemble(&config(), &HashMap::new(), &[]).unwrap();
+        assert_eq!(
+            model.summary.vuln_db_date,
+            crate::vuln::bundled_last_updated()
+        );
+        assert!(!model
+            .summary
+            .vuln_db_date
+            .to_ascii_lowercase()
+            .contains("not recorded"));
+
+        let mut info = HashMap::new();
+        info.insert("vuln_db_updated".to_string(), "not recorded".to_string());
+        let model = assemble(&config(), &info, &[]).unwrap();
+        assert_eq!(
+            model.summary.vuln_db_date,
+            crate::vuln::bundled_last_updated()
+        );
+
+        info.insert("vuln_db_updated".to_string(), "not run".to_string());
+        let model = assemble(&config(), &info, &[]).unwrap();
+        assert_eq!(
+            model.summary.vuln_db_date,
+            crate::vuln::bundled_last_updated()
+        );
+
+        info.insert("vuln_db_updated".to_string(), "2024-01-15".to_string());
+        let model = assemble(&config(), &info, &[]).unwrap();
+        assert_eq!(model.summary.vuln_db_date, "2024-01-15");
+
+        let mut dated = config();
+        dated.cve_db_date = "2026-10-30".to_string();
+        info.insert("vuln_db_updated".to_string(), "2020-01-01".to_string());
+        let model = assemble(&dated, &info, &[]).unwrap();
+        assert_eq!(model.summary.vuln_db_date, "2026-10-30");
+
+        dated.cve_db_date = "November 2, 2026".to_string();
+        let model = assemble(&dated, &info, &[]).unwrap();
+        assert_eq!(model.summary.vuln_db_date, "November 2, 2026");
     }
 }

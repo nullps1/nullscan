@@ -377,7 +377,17 @@ nullscan --target 203.0.113.10 --ports 22,80,443 --banners --vuln-check \
 nullscan report --config client.toml --input scan.json --output exposure.pdf
 ```
 
-Any field in the TOML can be overridden on the command line (`--auth-ref`, `--client`, `--signer`, `--signed-date`, `--scope`, `--logo`, `--accent`, `--retention-days`, `--insurance-appendix` / `--no-insurance-appendix`, `--rescan-offer`, `--monitoring-offer`, `--contact-name`, `--contact-email`, `--contact-phone`, `--known-mail-hosts`). `--auth-ref`, `--signer`, and `--signed-date` satisfy the authorization check when the file leaves them blank. `--signed-date` has to be a real calendar date, such as `2026-10-20`.
+Any field in the TOML can be overridden on the command line (`--auth-ref`, `--client`, `--signer`, `--signed-date`, `--scope`, `--logo`, `--accent`, `--retention-days`, `--cve-db-date`, `--insurance-appendix` / `--no-insurance-appendix`, `--rescan-offer`, `--monitoring-offer`, `--contact-name`, `--contact-email`, `--contact-phone`, `--known-mail-hosts`). `--auth-ref`, `--signer`, and `--signed-date` satisfy the authorization check when the file leaves them blank. `--signed-date` and `--cve-db-date` have to be real calendar dates, such as `2026-10-20`.
+
+Scan data is deleted 14 days after report delivery, or within 3 business days on request. `retention_days` in the TOML (or `--retention-days`) changes the 14. The default is 14.
+
+The CVE database date is printed in the report. It comes from `--cve-db-date`, then `report.cve_db_date`, then `vuln_db_updated` on the scan export, then the date compiled in from `vuln_db.json`. A scan that stored `not recorded` does not leave that note on the PDF. See [docs/vuln-db.md](docs/vuln-db.md) to refresh the database.
+
+`--demo` writes a sample PDF from fake data. It does not scan, and every address is in the documentation range `203.0.113.0/24`.
+
+```bash
+nullscan report --demo --output exposure.pdf
+```
 
 A worked example with a fake client and documentation-range addresses is in `examples/`:
 
