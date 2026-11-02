@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use log::{info, warn};
-use num_cpus;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -22,7 +21,7 @@ use scanner::{ScanConfig, ScanResult, Scanner};
 #[derive(Parser)]
 #[command(name = "nullscan")]
 #[command(
-    about = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners"
+    about = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners. Authorized use only."
 )]
 #[command(version = "1.6.0")]
 struct Args {
@@ -70,7 +69,7 @@ struct Args {
     #[arg(long)]
     vuln_check: bool,
 
-    /// Export format (json, markdown, csv)
+    /// Export format (json, markdown, csv, html)
     #[arg(short = 'f', long, default_value = "markdown")]
     format: ExportFormat,
 
@@ -97,6 +96,12 @@ struct Args {
     /// Web dashboard bind address
     #[arg(long, default_value = "127.0.0.1")]
     web_bind: String,
+
+    /// Bearer token for the web dashboard API and UI.
+    /// Generated and printed at startup when omitted.
+    /// Can also be set with the NULLSCAN_WEB_TOKEN environment variable.
+    #[arg(long, env = "NULLSCAN_WEB_TOKEN", hide_env_values = true)]
+    web_token: Option<String>,
 }
 
 #[tokio::main]
@@ -105,9 +110,9 @@ async fn main() -> Result<()> {
 
     // Check if web dashboard is requested
     if let Some(port) = args.web_dashboard {
-        println!("🌐 Starting NullScan Web Dashboard...");
-        let web_server = web::WebServer::new();
-        return web_server.start(args.web_bind, port).await;
+        let (token, generated) = web::resolve_token(args.web_token)?;
+        let web_server = web::WebServer::new(token);
+        return web_server.start(&args.web_bind, port, generated).await;
     }
 
     // Apply fast mode optimizations
@@ -160,9 +165,23 @@ async fn main() -> Result<()> {
         match vuln::VulnChecker::load_from_file("vuln_db.json") {
             Ok(checker) => {
                 let stats = checker.get_stats();
+                let severities = stats
+                    .severity_counts
+                    .iter()
+                    .map(|(severity, count)| format!("{severity}: {count}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 info!(
-                    "🛡️  Vulnerability database loaded: {} patterns, {} vulnerabilities",
-                    stats.total_patterns, stats.total_vulnerabilities
+                    "🛡️  Vulnerability database loaded: {} patterns, {} vulnerabilities (db {}, updated {}; {})",
+                    stats.total_patterns,
+                    stats.total_vulnerabilities,
+                    stats.version,
+                    stats.last_updated,
+                    if severities.is_empty() {
+                        "no severity counts".to_string()
+                    } else {
+                        severities
+                    }
                 );
                 Some(Arc::new(checker))
             }
@@ -568,4 +587,26 @@ fn generate_network_scan_report(
     report.insert("timestamp".to_string(), chrono::Utc::now().to_rfc3339());
 
     report
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    #[test]
+    fn help_lists_html_and_dashboard_token() {
+        let help = Args::command().render_long_help().to_string();
+        assert!(
+            help.contains("json, markdown, csv, html"),
+            "format help should list html: {help}"
+        );
+        assert!(help.contains("--web-dashboard <WEB_DASHBOARD>"));
+        assert!(help.contains("--web-token"));
+        assert!(help.contains("NULLSCAN_WEB_TOKEN"));
+        assert!(
+            !help.contains("--web-dashboard <WEB_DASHBOARD> [default"),
+            "dashboard port has no default"
+        );
+    }
 }

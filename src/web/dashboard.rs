@@ -439,13 +439,22 @@ pub async fn dashboard_index(State(state): State<Arc<AppState>>) -> Html<String>
         </div>
 
         <div class="footer">
-            <p>NullScan v1.6.0 - Professional Red Team Network Scanner</p>
-            <p>Built with ❤️ in Rust for speed, safety, and reliability</p>
+            <p>NullScan v1.6.0 · nullps1 | systems builder</p>
+            <p>Weeks IT Solutions · Authorized use only</p>
         </div>
     </div>
 
     <script>
         let scans = [];
+
+        async function apiFetch(url, options) {{
+            const response = await fetch(url, options);
+            if (response.status === 401) {{
+                window.location.href = '/login';
+                throw new Error('unauthorized');
+            }}
+            return response;
+        }}
 
         function showScanForm() {{
             document.getElementById('scanForm').style.display = 'block';
@@ -483,7 +492,7 @@ pub async fn dashboard_index(State(state): State<Arc<AppState>>) -> Html<String>
             }};
 
             try {{
-                const response = await fetch('/api/scan', {{
+                const response = await apiFetch('/api/scan', {{
                     method: 'POST',
                     headers: {{
                         'Content-Type': 'application/json',
@@ -507,7 +516,7 @@ pub async fn dashboard_index(State(state): State<Arc<AppState>>) -> Html<String>
 
         async function refreshScans() {{
             try {{
-                const response = await fetch('/api/scans');
+                const response = await apiFetch('/api/scans');
                 const result = await response.json();
 
                 if (result.success) {{
@@ -580,8 +589,34 @@ pub async fn dashboard_scan_detail(
 ) -> Html<String> {
     if let Some(scan_ref) = state.scans.get(&scan_id) {
         let scan = scan_ref.value().read().await;
+        let status = format!("{:?}", scan.status);
+        let open_ports = scan.results.iter().filter(|result| result.is_open).count();
+        let vuln_count: usize = scan
+            .results
+            .iter()
+            .map(|result| result.vulnerabilities.len())
+            .sum();
+        let rows = scan
+            .results
+            .iter()
+            .map(|result| {
+                format!(
+                    "<tr><td>{}</td><td>{}</td><td class=\"{}\">{}</td><td>{}</td><td>{}</td><td>{}</td><td>{:.2}ms</td></tr>",
+                    result.target,
+                    result.port,
+                    if result.is_open { "open-port" } else { "closed-port" },
+                    if result.is_open { "Open" } else { "Closed" },
+                    result.service.as_deref().unwrap_or("Unknown"),
+                    result.banner.as_deref().unwrap_or("N/A"),
+                    result.vulnerabilities.len(),
+                    result.response_time.as_millis()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("");
 
-        Html(format!(r#"
+        Html(format!(
+            r#"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -668,6 +703,8 @@ pub async fn dashboard_scan_detail(
             <p><strong>Target:</strong> {}</p>
             <p><strong>Created:</strong> {}</p>
             <p><strong>Progress:</strong> {}/{} ports scanned</p>
+            <p><strong>Open Ports:</strong> {}</p>
+            <p><strong>Vulnerabilities:</strong> {}</p>
         </div>
 
         <h3>Results</h3>
@@ -679,6 +716,7 @@ pub async fn dashboard_scan_detail(
                     <th>Status</th>
                     <th>Service</th>
                     <th>Banner</th>
+                    <th>Vulnerabilities</th>
                     <th>Response Time</th>
                 </tr>
             </thead>
@@ -693,23 +731,14 @@ pub async fn dashboard_scan_detail(
             scan.name,
             scan.name,
             scan.description,
-            format!("{:?}", scan.status),
+            status,
             scan.target,
             scan.created_at.format("%Y-%m-%d %H:%M:%S"),
             scan.progress.ports_scanned,
             scan.progress.total_ports,
-            scan.results.iter().map(|result| {
-                format!(
-                    "<tr><td>{}</td><td>{}</td><td class=\"{}\">{}</td><td>{}</td><td>{}</td><td>{:.2}ms</td></tr>",
-                    result.target,
-                    result.port,
-                    if result.is_open { "open-port" } else { "closed-port" },
-                    if result.is_open { "Open" } else { "Closed" },
-                    result.service.as_deref().unwrap_or("Unknown"),
-                    result.banner.as_deref().unwrap_or("N/A"),
-                    result.response_time.as_millis()
-                )
-            }).collect::<Vec<_>>().join("")
+            open_ports,
+            vuln_count,
+            rows
         ))
     } else {
         Html("<h1>Scan not found</h1>".to_string())

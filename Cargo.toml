@@ -2,37 +2,39 @@
 name = "nullscan"
 version = "1.6.0"
 edition = "2021"
-authors = ["Nullgrimoire <null.grimoire.mage@gmail.com>"]
+authors = ["Noah \"Null\" Weeks <noah@weeksitsolutions.com>"]
 description = "A fast, cross-platform Rust tool for scanning TCP ports and grabbing service banners"
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/Nullgrimoire/NullScan"
+repository = "https://github.com/nullps1/nullscan"
+homepage = "https://weeksitsolutions.com"
 keywords = ["network", "security", "port-scanner", "tcp", "reconnaissance"]
 categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
-tokio = { version = "1.0", features = ["full"] }
-clap = { version = "4.0", features = ["derive"] }
+tokio = { version = "1.44", features = ["full"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 log = "0.4"
-env_logger = "0.10"
+env_logger = "0.11"
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
-indicatif = "0.17"
-console = "0.15"
-colored = "2.0"
+indicatif = "0.18"
+console = "0.16"
+colored = "3"
 ipnet = "2.9"
-regex = "1.11.1"
+regex = "1.11"
 num_cpus = "1.16"
 # Web dashboard dependencies
-axum = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.7", features = ["fs"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
 tokio-stream = "0.1"
-dashmap = "5.5"
+dashmap = "6"
 
 [dev-dependencies]
 tokio-test = "0.4"
+tower = { version = "0.5", features = ["util"] }

@@ -9,13 +9,16 @@ use crate::web::types::{ScanInfo, ScanSummary};
 pub struct AppState {
     pub scans: Arc<DashMap<Uuid, Arc<RwLock<ScanInfo>>>>,
     pub scan_handles: Arc<DashMap<Uuid, tokio::task::JoinHandle<()>>>,
+    /// Bearer token required for the dashboard UI and API.
+    pub auth_token: String,
 }
 
 impl AppState {
-    pub fn new() -> Self {
+    pub fn new(auth_token: String) -> Self {
         Self {
             scans: Arc::new(DashMap::new()),
             scan_handles: Arc::new(DashMap::new()),
+            auth_token,
         }
     }
 
