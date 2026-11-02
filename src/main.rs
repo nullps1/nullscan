@@ -1,22 +1,24 @@
 use anyhow::Result;
-use clap::Parser;
-use log::{info, warn};
-use std::collections::HashMap;
-use std::net::IpAddr;
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::Semaphore;
+use clap::{Parser, Subcommand};
+use log::info;
 
 mod banner;
 mod export;
 mod presets;
+mod report;
+mod scan_job;
 mod scanner;
 mod vuln;
 mod web;
 
 use export::ExportFormat;
-use presets::PortPreset;
-use scanner::{ScanConfig, ScanResult, Scanner};
+use scan_job::ScanJob;
+
+#[derive(Subcommand)]
+enum Command {
+    /// Build a client-facing external exposure PDF from a live scan or a saved JSON export.
+    Report(report::ReportArgs),
+}
 
 #[derive(Parser)]
 #[command(name = "nullscan")]
@@ -102,11 +104,41 @@ struct Args {
     /// Can also be set with the NULLSCAN_WEB_TOKEN environment variable.
     #[arg(long, env = "NULLSCAN_WEB_TOKEN", hide_env_values = true)]
     web_token: Option<String>,
+
+    #[command(subcommand)]
+    command: Option<Command>,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let mut args = Args::parse();
+
+    if let Some(command) = args.command.take() {
+        match command {
+            Command::Report(mut report_args) => {
+                if args.web_dashboard.is_some() {
+                    return Err(anyhow::anyhow!(
+                        "The report subcommand cannot be combined with --web-dashboard"
+                    ));
+                }
+                if report_args.fast_mode {
+                    let logical_cores = num_cpus::get();
+                    report_args.concurrency = logical_cores * 150;
+                    report_args.timeout = 95;
+                    report_args.banners = false;
+                    report_args.vuln_check = false;
+                    report_args.verbose = false;
+                    report_args.quiet = true;
+                    eprintln!(
+                        "⚡ FAST MODE: {} cores → concurrency={}, timeout={}ms (LUDICROUS SPEED)",
+                        logical_cores, report_args.concurrency, report_args.timeout
+                    );
+                }
+                init_logger(report_args.quiet, report_args.verbose);
+                return report::execute(report_args).await;
+            }
+        }
+    }
 
     // Check if web dashboard is requested
     if let Some(port) = args.web_dashboard {
@@ -142,13 +174,54 @@ async fn main() -> Result<()> {
         );
     }
 
-    // Initialize logger
-    if args.quiet {
-        // In quiet mode, only show errors
+    init_logger(args.quiet, args.verbose);
+
+    info!("🚀 NullScan v1.7.0 - Starting port scan");
+
+    let target = args
+        .target
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("Target is required for CLI mode"))?;
+
+    let completed = ScanJob {
+        target,
+        ports: args.ports,
+        top100: args.top100,
+        top1000: args.top1000,
+        concurrency: args.concurrency,
+        max_hosts: args.max_hosts,
+        ping_sweep: args.ping_sweep,
+        timeout: args.timeout,
+        ping_timeout: args.ping_timeout,
+        banners: args.banners,
+        vuln_check: args.vuln_check,
+        quiet: args.quiet,
+        fast_mode: args.fast_mode,
+    }
+    .run()
+    .await?;
+
+    if completed.skipped {
+        return Ok(());
+    }
+
+    export::export_results(
+        &completed.results,
+        &completed.info,
+        args.format,
+        args.output,
+    )
+    .await?;
+
+    Ok(())
+}
+
+fn init_logger(quiet: bool, verbose: bool) {
+    if quiet {
         env_logger::Builder::from_default_env()
             .filter_level(log::LevelFilter::Error)
             .init();
-    } else if args.verbose {
+    } else if verbose {
         env_logger::Builder::from_default_env()
             .filter_level(log::LevelFilter::Debug)
             .init();
@@ -157,436 +230,6 @@ async fn main() -> Result<()> {
             .filter_level(log::LevelFilter::Info)
             .init();
     }
-
-    info!("🚀 NullScan v1.7.0 - Starting port scan");
-
-    // Load vulnerability database if vuln checking is enabled
-    let vuln_checker = if args.vuln_check {
-        match vuln::VulnChecker::load_from_file("vuln_db.json") {
-            Ok(checker) => {
-                let stats = checker.get_stats();
-                let severities = stats
-                    .severity_counts
-                    .iter()
-                    .map(|(severity, count)| format!("{severity}: {count}"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                info!(
-                    "🛡️  Vulnerability database loaded: {} patterns, {} vulnerabilities (db {}, updated {}; {})",
-                    stats.total_patterns,
-                    stats.total_vulnerabilities,
-                    stats.version,
-                    stats.last_updated,
-                    if severities.is_empty() {
-                        "no severity counts".to_string()
-                    } else {
-                        severities
-                    }
-                );
-                Some(Arc::new(checker))
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to load vulnerability database: {e}. Continuing without vuln checking."
-                );
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    // Check that target is provided for CLI mode
-    let target = args
-        .target
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Target is required for CLI mode"))?;
-
-    // Parse targets (skip DNS in fast mode for performance)
-    let targets = if args.fast_mode {
-        parse_targets_fast(target)?
-    } else {
-        parse_targets(target).await?
-    };
-    info!("Parsed {} target(s) from: {}", targets.len(), target);
-
-    // Determine ports to scan
-    let ports = if args.top100 {
-        presets::get_top_ports(PortPreset::Top100)
-    } else if args.top1000 {
-        presets::get_top_ports(PortPreset::Top1000)
-    } else if let Some(port_spec) = args.ports {
-        parse_port_specification(&port_spec)?
-    } else {
-        // Default to top 100 if no ports specified
-        warn!("No ports specified, using top 100 common ports");
-        presets::get_top_ports(PortPreset::Top100)
-    };
-
-    info!(
-        "Targets: {} | Ports: {} | Concurrency: {} | Max Hosts: {}",
-        targets.len(),
-        ports.len(),
-        args.concurrency,
-        args.max_hosts
-    );
-
-    // Perform ping sweep if requested (but skip for single hosts in fast mode)
-    let final_targets = if args.ping_sweep && !(args.fast_mode && targets.len() == 1) {
-        if !args.quiet {
-            info!("🏓 Ping sweep enabled, checking host availability...");
-        }
-        let alive_hosts =
-            scanner::ping_sweep(&targets, args.ping_timeout, args.concurrency, args.quiet).await;
-
-        if alive_hosts.is_empty() {
-            if !args.quiet {
-                warn!("No hosts responded to ping sweep. Exiting.");
-            }
-            return Ok(());
-        }
-
-        if !args.quiet {
-            info!(
-                "📊 Ping sweep reduced targets from {} to {} hosts",
-                targets.len(),
-                alive_hosts.len()
-            );
-        }
-        alive_hosts
-    } else {
-        targets
-    };
-
-    // Scan all targets with parallel host scanning
-    let start_time = Instant::now();
-
-    // Create semaphore to limit concurrent host scans
-    let host_semaphore = Arc::new(Semaphore::new(args.max_hosts));
-
-    // Create futures for all target scans
-    let scan_futures = final_targets.iter().enumerate().map(|(i, target)| {
-        let host_semaphore = Arc::clone(&host_semaphore);
-        let ports = ports.clone();
-        let target = *target;
-        let concurrency = args.concurrency;
-        let timeout = args.timeout;
-        let grab_banners = args.banners;
-        let total_targets = final_targets.len();
-        let vuln_checker = vuln_checker.clone();
-
-        async move {
-            // Acquire semaphore permit
-            let _permit = host_semaphore.acquire().await.unwrap();
-
-            if !args.quiet {
-                info!("📡 Scanning target {}/{}: {}", i + 1, total_targets, target);
-            }
-
-            // Create scan configuration for this target
-            let config = ScanConfig {
-                target,
-                ports,
-                concurrency,
-                timeout_ms: timeout,
-                grab_banners,
-                quiet: args.quiet,
-                fast_mode: args.fast_mode,
-            };
-
-            // Perform scan
-            let scanner = Scanner::new(config);
-            let results = if let Some(ref checker) = vuln_checker {
-                scanner.scan_with_vuln_checker(Some(checker)).await?
-            } else {
-                scanner.scan().await?
-            };
-
-            Ok::<(String, Vec<ScanResult>), anyhow::Error>((target.to_string(), results))
-        }
-    });
-
-    // Execute all scans concurrently and collect results
-    let all_results = futures::future::try_join_all(scan_futures).await?;
-
-    let scan_duration = start_time.elapsed();
-
-    // Generate and export results
-    if final_targets.len() == 1 {
-        // Single target - use existing format
-        let (target_str, results) = &all_results[0];
-        let report = generate_scan_report(results, target_str, scan_duration);
-        export::export_results(results, &report, args.format, args.output).await?;
-    } else {
-        // Multiple targets - combine results
-        let mut combined_results = Vec::new();
-
-        for (target_str, results) in &all_results {
-            let open_count = results.iter().filter(|r| r.is_open).count();
-
-            info!(
-                "📊 {}: {}/{} ports open",
-                target_str,
-                open_count,
-                results.len()
-            );
-            combined_results.extend(results.iter().cloned());
-        }
-
-        let report = generate_network_scan_report(&all_results, target, scan_duration);
-        export::export_results(&combined_results, &report, args.format, args.output).await?;
-    }
-
-    if !args.quiet {
-        info!("✅ Scan completed in {scan_duration:.2?}");
-    }
-    Ok(())
-}
-
-fn parse_port_specification(spec: &str) -> Result<Vec<u16>> {
-    let mut ports = Vec::new();
-
-    for part in spec.split(',') {
-        let part = part.trim();
-        if part.contains('-') {
-            // Range (e.g., "1-1000")
-            let range_parts: Vec<&str> = part.split('-').collect();
-            if range_parts.len() != 2 {
-                return Err(anyhow::anyhow!("Invalid port range: {}", part));
-            }
-            let start: u16 = range_parts[0].parse()?;
-            let end: u16 = range_parts[1].parse()?;
-            for port in start..=end {
-                ports.push(port);
-            }
-        } else {
-            // Single port
-            let port: u16 = part.parse()?;
-            ports.push(port);
-        }
-    }
-
-    Ok(ports)
-}
-
-fn parse_targets_fast(target_spec: &str) -> Result<Vec<IpAddr>> {
-    let mut targets = Vec::new();
-
-    // Check if it's multiple targets separated by commas
-    if target_spec.contains(',') {
-        for target in target_spec.split(',') {
-            let target = target.trim();
-
-            // Handle each target type individually
-            if target.contains('/') {
-                // CIDR notation
-                let network: ipnet::IpNet = target
-                    .parse()
-                    .map_err(|_| anyhow::anyhow!("Invalid CIDR notation: {}", target))?;
-
-                for (count, ip) in network.hosts().enumerate() {
-                    if count >= 1024 {
-                        break; // No warnings in fast mode
-                    }
-                    targets.push(ip);
-                }
-            } else {
-                // Only accept IP addresses in fast mode
-                match target.parse::<IpAddr>() {
-                    Ok(ip) => targets.push(ip),
-                    Err(_) => {
-                        return Err(anyhow::anyhow!(
-                            "Fast mode: Only IP addresses supported, got: {}",
-                            target
-                        ));
-                    }
-                }
-            }
-        }
-        return Ok(targets);
-    }
-
-    // Check if it's CIDR notation
-    if target_spec.contains('/') {
-        let network: ipnet::IpNet = target_spec
-            .parse()
-            .map_err(|_| anyhow::anyhow!("Invalid CIDR notation: {}", target_spec))?;
-
-        // Collect all IPs in the network (limit to reasonable size)
-        for (count, ip) in network.hosts().enumerate() {
-            if count >= 1024 {
-                break; // No warnings in fast mode
-            }
-            targets.push(ip);
-        }
-
-        if targets.is_empty() {
-            return Err(anyhow::anyhow!(
-                "No hosts found in network: {}",
-                target_spec
-            ));
-        }
-    } else {
-        // Only accept IP addresses in fast mode
-        match target_spec.parse::<IpAddr>() {
-            Ok(ip) => targets.push(ip),
-            Err(_) => {
-                return Err(anyhow::anyhow!(
-                    "Fast mode: Only IP addresses supported, got: {}",
-                    target_spec
-                ));
-            }
-        }
-    }
-
-    Ok(targets)
-}
-
-async fn parse_targets(target_spec: &str) -> Result<Vec<IpAddr>> {
-    let mut targets = Vec::new();
-
-    // Check if it's multiple targets separated by commas
-    if target_spec.contains(',') {
-        for target in target_spec.split(',') {
-            let target = target.trim();
-
-            // Handle each target type individually
-            if target.contains('/') {
-                // CIDR notation
-                let network: ipnet::IpNet = target
-                    .parse()
-                    .map_err(|_| anyhow::anyhow!("Invalid CIDR notation: {}", target))?;
-
-                for (count, ip) in network.hosts().enumerate() {
-                    if count >= 1024 {
-                        warn!("Network too large, limiting to first 1024 hosts");
-                        break;
-                    }
-                    targets.push(ip);
-                }
-            } else {
-                // Single IP or hostname
-                match target.parse::<IpAddr>() {
-                    Ok(ip) => targets.push(ip),
-                    Err(_) => {
-                        // Try to resolve hostname
-                        let resolved = tokio::net::lookup_host(format!("{target}:80"))
-                            .await
-                            .map_err(|_| {
-                                anyhow::anyhow!("Failed to resolve hostname: {}", target)
-                            })?;
-
-                        if let Some(addr) = resolved.map(|addr| addr.ip()).next() {
-                            targets.push(addr);
-                        } else {
-                            return Err(anyhow::anyhow!(
-                                "No IP addresses found for hostname: {}",
-                                target
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        return Ok(targets);
-    }
-
-    // Check if it's CIDR notation
-    if target_spec.contains('/') {
-        let network: ipnet::IpNet = target_spec
-            .parse()
-            .map_err(|_| anyhow::anyhow!("Invalid CIDR notation: {}", target_spec))?;
-
-        // Collect all IPs in the network (limit to reasonable size)
-        for (count, ip) in network.hosts().enumerate() {
-            if count >= 1024 {
-                warn!("Network too large, limiting to first 1024 hosts");
-                break;
-            }
-            targets.push(ip);
-        }
-
-        if targets.is_empty() {
-            return Err(anyhow::anyhow!(
-                "No hosts found in network: {}",
-                target_spec
-            ));
-        }
-    } else {
-        // Single IP or hostname
-        match target_spec.parse::<IpAddr>() {
-            Ok(ip) => targets.push(ip),
-            Err(_) => {
-                // Try to resolve hostname
-                let resolved = tokio::net::lookup_host(format!("{target_spec}:80"))
-                    .await
-                    .map_err(|_| anyhow::anyhow!("Failed to resolve hostname: {}", target_spec))?;
-
-                if let Some(addr) = resolved.map(|addr| addr.ip()).next() {
-                    targets.push(addr);
-                } else {
-                    return Err(anyhow::anyhow!(
-                        "No addresses found for hostname: {}",
-                        target_spec
-                    ));
-                }
-            }
-        }
-    }
-
-    Ok(targets)
-}
-
-fn generate_scan_report(
-    results: &[ScanResult],
-    target: &str,
-    duration: std::time::Duration,
-) -> HashMap<String, String> {
-    let mut report = HashMap::new();
-
-    let total_ports = results.len();
-    let open_ports = results.iter().filter(|r| r.is_open).count();
-    let closed_ports = total_ports - open_ports;
-
-    report.insert("target".to_string(), target.to_string());
-    report.insert("total_ports".to_string(), total_ports.to_string());
-    report.insert("open_ports".to_string(), open_ports.to_string());
-    report.insert("closed_ports".to_string(), closed_ports.to_string());
-    report.insert("scan_duration".to_string(), format!("{duration:.2?}"));
-    report.insert("timestamp".to_string(), chrono::Utc::now().to_rfc3339());
-
-    report
-}
-
-fn generate_network_scan_report(
-    all_results: &[(String, Vec<ScanResult>)],
-    target_spec: &str,
-    duration: std::time::Duration,
-) -> HashMap<String, String> {
-    let mut report = HashMap::new();
-
-    let total_targets = all_results.len();
-    let total_ports: usize = all_results.iter().map(|(_, results)| results.len()).sum();
-    let total_open_ports: usize = all_results
-        .iter()
-        .map(|(_, results)| results.iter().filter(|r| r.is_open).count())
-        .sum();
-
-    report.insert(
-        "target".to_string(),
-        format!("{target_spec} ({total_targets} hosts)"),
-    );
-    report.insert("total_targets".to_string(), total_targets.to_string());
-    report.insert("total_ports".to_string(), total_ports.to_string());
-    report.insert("open_ports".to_string(), total_open_ports.to_string());
-    report.insert(
-        "closed_ports".to_string(),
-        (total_ports - total_open_ports).to_string(),
-    );
-    report.insert("scan_duration".to_string(), format!("{duration:.2?}"));
-    report.insert("timestamp".to_string(), chrono::Utc::now().to_rfc3339());
-
-    report
 }
 
 #[cfg(test)]
