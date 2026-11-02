@@ -7,18 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-02
+
 ### Added
 - `nullscan report --demo` builds a sample PDF from fake data. Every address is in `203.0.113.0/24`.
-- `--cve-db-date` and `report.cve_db_date` set the CVE database date printed in the report. When the scan export says `not recorded` or `not run`, the report uses the date compiled in from `vuln_db.json`.
-- The insurance appendix has a signature block (line, printed name, organization, and date).
-- `scripts/refresh-vuln-db.py` and `docs/vuln-db.md` refresh the generated section of `vuln_db.json` from the CISA Known Exploited Vulnerabilities catalog and NVD CPE records.
+- New scans record the CVE database date even when `--vuln-check` is off. `--cve-db-date` and `report.cve_db_date` set the date printed in the report. When the scan export says `not recorded` or `not run`, the report uses the date compiled in from `vuln_db.json`.
+- The insurance letter has a signature block (signature line, printed name, organization, and date).
+- `scripts/refresh-vuln-db.py` and `docs/vuln-db.md` refresh the generated section of `vuln_db.json` from the CISA Known Exploited Vulnerabilities catalog and NVD records.
 
 ### Changed
-- HTTP 3xx responses, including redirects, are INFO. A CVE score, critical service, cleartext login, end-of-life banner, or management port still outranks that.
-- The cover page shows the grade (letter, word, and shape), a one-sentence summary, and the top 3 items. Scope and authorization start on page 2.
+- HTTP 3xx findings, including redirects, are rated INFO. A CVE score, critical service, cleartext login, end-of-life banner, or management port still outranks that.
+- The report cover page shows the grade (letter, word, and shape), a one-sentence summary, and the top 3 items. Scope and authorization start on page 2.
 - The page footer is one line.
-- Scan data is deleted 14 days after report delivery, or within 3 business days on request. `retention_days` defaults to 14.
-- The bundled CVE database includes current NVD records for the products nullscan matches, with `last_updated` set from the CISA KEV catalog release date. Hand-written banner patterns are unchanged.
+- Scan data is retained for 14 days after report delivery, or deleted within 3 business days on request. `retention_days` defaults to 14.
+- The bundled CVE database was refreshed from CISA KEV 2026.10.30 with descriptions and CVSS scores from NVD. `last_updated` is 2026-10-30. Hand-written banner patterns are unchanged.
 
 ## [1.8.0] - 2026-11-02
 

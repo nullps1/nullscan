@@ -242,7 +242,7 @@ Choose the binary for your platform:
 
 ```bash
 # Download and install (replace VERSION with latest release)
-VERSION="v1.8.0"  # Check releases page for latest version
+VERSION="v1.9.0"  # Check releases page for latest version
 wget https://github.com/nullps1/nullscan/releases/download/${VERSION}/nullscan-linux-x86_64
 chmod +x nullscan-linux-x86_64
 sudo mv nullscan-linux-x86_64 /usr/local/bin/nullscan
@@ -255,7 +255,7 @@ nullscan --version
 
 ```powershell
 # Download binary (replace VERSION with latest release)
-$VERSION = "v1.8.0"  # Check releases page for latest version
+$VERSION = "v1.9.0"  # Check releases page for latest version
 Invoke-WebRequest -Uri "https://github.com/nullps1/nullscan/releases/download/$VERSION/nullscan-windows-x86_64.exe" -OutFile "nullscan.exe"
 
 # Run directly
@@ -268,7 +268,7 @@ Always verify your downloads using the provided SHA256 checksums:
 
 ```bash
 # Linux/macOS
-wget https://github.com/nullps1/nullscan/releases/download/v1.8.0/nullscan-linux-x86_64.sha256
+wget https://github.com/nullps1/nullscan/releases/download/v1.9.0/nullscan-linux-x86_64.sha256
 shasum -a 256 -c nullscan-linux-x86_64.sha256
 ```
 
