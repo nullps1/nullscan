@@ -63,6 +63,27 @@ pub struct VulnChecker {
     database: VulnDatabase,
 }
 
+/// `last_updated` from the `vuln_db.json` compiled into this binary.
+pub fn bundled_last_updated() -> &'static str {
+    bundled_field("last_updated").unwrap_or("not recorded")
+}
+
+/// `version` from the `vuln_db.json` compiled into this binary.
+pub fn bundled_version() -> &'static str {
+    bundled_field("version").unwrap_or("")
+}
+
+fn bundled_field(name: &str) -> Option<&'static str> {
+    let text = include_str!("../../vuln_db.json");
+    let key = format!("\"{name}\"");
+    let index = text.find(&key)?;
+    let after = &text[index + key.len()..];
+    let quote = after.find('"')?;
+    let rest = &after[quote + 1..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
 impl VulnChecker {
     pub fn load_from_file(path: &str) -> Result<Self> {
         info!("Loading vulnerability database from: {path}");
@@ -422,5 +443,31 @@ mod tests {
         assert_eq!(vulns[0].cve, "CVE-TEST-VER");
         assert_eq!(vulns[1].cve, "CVE-TEST-REGEX");
         assert_eq!(vulns[0].severity.to_color_code(), "🔴");
+    }
+
+    #[test]
+    fn bundled_database_records_a_current_date() {
+        let updated = bundled_last_updated();
+        assert_ne!(updated, "not recorded");
+        assert!(
+            updated >= "2026-01-01",
+            "bundled CVE database date should be current, got {updated}"
+        );
+        let value: serde_json::Value =
+            serde_json::from_str(include_str!("../../vuln_db.json")).unwrap();
+        assert_eq!(value["last_updated"].as_str().unwrap(), updated);
+        assert!(!bundled_version().is_empty());
+        let newest = value["patterns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|pattern| pattern["vulnerabilities"].as_array().unwrap())
+            .filter_map(|vuln| vuln["published"].as_str())
+            .max()
+            .unwrap_or("");
+        assert!(
+            newest >= "2024-01-01",
+            "newest bundled CVE was published {newest}"
+        );
     }
 }

@@ -65,9 +65,15 @@ pub struct ReportOverrides {
     #[arg(long)]
     pub accent: Option<String>,
 
-    /// How many days scan data is kept before deletion.
+    /// Days after report delivery before scan data is deleted. The report says
+    /// it is deleted this many days after delivery, or within 3 business days
+    /// on request. Default in the TOML is 14.
     #[arg(long)]
     pub retention_days: Option<u32>,
+
+    /// CVE database date to print, such as 2026-10-30. Overrides the scan export.
+    #[arg(long)]
+    pub cve_db_date: Option<String>,
 
     /// Include the one-page insurance appendix.
     #[arg(long, action = clap::ArgAction::SetTrue)]
@@ -110,9 +116,10 @@ pub struct ResolvedConfig {
     pub prepared_by: String,
     pub delivery_date: String,
     pub retention_days: u32,
+    /// Set from the TOML field or `--cve-db-date`. Empty when neither was set.
+    pub cve_db_date: String,
     pub insurance_appendix: bool,
     pub accent: (f32, f32, f32),
-    pub accent_hex: String,
     pub logo: Option<Vec<u8>>,
     pub contact_name: String,
     pub contact_email: String,
@@ -180,6 +187,8 @@ struct ReportSection {
     #[serde(default = "default_retention")]
     retention_days: u32,
     #[serde(default)]
+    cve_db_date: String,
+    #[serde(default)]
     insurance_appendix: bool,
     #[serde(default = "default_accent")]
     accent: String,
@@ -213,6 +222,7 @@ impl Default for ReportSection {
             prepared_by: default_prepared_by(),
             delivery_date: String::new(),
             retention_days: default_retention(),
+            cve_db_date: String::new(),
             insurance_appendix: false,
             accent: default_accent(),
             logo_path: String::new(),
@@ -237,7 +247,7 @@ fn default_prepared_by() -> String {
     "Noah Weeks, Weeks IT Solutions".to_string()
 }
 fn default_retention() -> u32 {
-    90
+    14
 }
 fn default_accent() -> String {
     "#1F4E79".to_string()
@@ -311,6 +321,10 @@ fn resolve(
     let rescan_offer = override_nonempty(overrides.rescan_offer.clone(), file.offers.rescan);
     let monitoring_offer =
         override_nonempty(overrides.monitoring_offer.clone(), file.offers.monitoring);
+    let cve_db_date = require_optional_date(
+        &override_nonempty(overrides.cve_db_date.clone(), file.report.cve_db_date),
+        "CVE database date",
+    )?;
 
     Ok(ResolvedConfig {
         client_legal_name: override_nonempty(overrides.client.clone(), file.client.legal_name),
@@ -332,15 +346,15 @@ fn resolve(
         retention_days: overrides
             .retention_days
             .unwrap_or(file.report.retention_days),
+        cve_db_date,
         insurance_appendix,
         accent,
-        accent_hex,
         logo,
         contact_name: override_nonempty(overrides.contact_name.clone(), file.contact.name),
         contact_email: override_nonempty(overrides.contact_email.clone(), file.contact.email),
         contact_phone: override_nonempty(overrides.contact_phone.clone(), file.contact.phone),
-        rescan_offer: placeholder_if_blank(&rescan_offer, "{{rescan_offer}}"),
-        monitoring_offer: placeholder_if_blank(&monitoring_offer, "{{monitoring_offer}}"),
+        rescan_offer: rescan_offer.trim().to_string(),
+        monitoring_offer: monitoring_offer.trim().to_string(),
     })
 }
 
@@ -348,14 +362,6 @@ fn override_nonempty(over: Option<String>, file_value: String) -> String {
     match over {
         Some(value) if !value.trim().is_empty() => value,
         _ => file_value,
-    }
-}
-
-fn placeholder_if_blank(value: &str, placeholder: &str) -> String {
-    if value.trim().is_empty() {
-        placeholder.to_string()
-    } else {
-        value.to_string()
     }
 }
 
@@ -374,7 +380,20 @@ fn require_signed_date(value: &str) -> Result<String> {
     Ok(trimmed.to_string())
 }
 
-fn parse_calendar_date(value: &str) -> Option<chrono::NaiveDate> {
+fn require_optional_date(value: &str, label: &str) -> Result<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(String::new());
+    }
+    if parse_calendar_date(trimmed).is_none() {
+        bail!(
+            "Refusing to build the report because the {label} {trimmed:?} is not a real date. Use a calendar date such as 2026-10-30."
+        );
+    }
+    Ok(trimmed.to_string())
+}
+
+pub(crate) fn parse_calendar_date(value: &str) -> Option<chrono::NaiveDate> {
     const FORMATS: &[&str] = &[
         "%Y-%m-%d",
         "%Y/%m/%d",
@@ -503,8 +522,10 @@ retention_days = 30
         assert_eq!(config.signed_date, "2026-10-20");
         assert_eq!(config.client_legal_name, "Example Co");
         assert_eq!(config.contact_name, "Noah Weeks");
-        assert_eq!(config.retention_days, 90);
-        assert_eq!(config.rescan_offer, "{{rescan_offer}}");
+        assert_eq!(config.retention_days, 14);
+        assert_eq!(config.cve_db_date, "");
+        assert_eq!(config.rescan_offer, "");
+        assert_eq!(config.monitoring_offer, "");
         assert_eq!(config.delivery_date, today_in_denver());
     }
 
@@ -637,5 +658,26 @@ delivery_date = "  November 2, 2026  "
         let err =
             parse_config(text, Path::new("report.toml"), &ReportOverrides::default()).unwrap_err();
         assert!(err.to_string().contains("authorization reference"));
+    }
+
+    #[test]
+    fn cve_database_date_must_be_a_real_date_when_set() {
+        let base = "[authorization]\nreference = \"AUTH-1\"\nsigner_name = \"Pat Example\"\nsigned_date = \"2026-10-20\"\n";
+        let bad = format!("{base}[report]\ncve_db_date = \"not recorded\"\n");
+        let err =
+            parse_config(&bad, Path::new("report.toml"), &ReportOverrides::default()).unwrap_err();
+        assert!(err.to_string().contains("CVE database date"), "{err}");
+
+        let good = format!("{base}[report]\ncve_db_date = \"2026-10-30\"\n");
+        let config =
+            parse_config(&good, Path::new("report.toml"), &ReportOverrides::default()).unwrap();
+        assert_eq!(config.cve_db_date, "2026-10-30");
+
+        let overrides = ReportOverrides {
+            cve_db_date: Some("2026-11-02".to_string()),
+            ..ReportOverrides::default()
+        };
+        let config = parse_config(&good, Path::new("report.toml"), &overrides).unwrap();
+        assert_eq!(config.cve_db_date, "2026-11-02");
     }
 }

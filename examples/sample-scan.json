@@ -9,8 +9,8 @@
     "scan_started": "2026-10-28T18:29:55Z",
     "scan_ended": "2026-10-28T18:30:00Z",
     "nullscan_version": "1.8.0",
-    "vuln_db_updated": "2025-07-13",
-    "vuln_db_version": "2.0.1"
+    "vuln_db_updated": "2026-10-30",
+    "vuln_db_version": "2.1.0"
   },
   "results": [
     {

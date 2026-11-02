@@ -25,9 +25,14 @@ pub struct ReportArgs {
     #[arg(long)]
     pub input: Option<PathBuf>,
 
+    /// Build the sample report from built-in fake data. Every address is in 203.0.113.0/24.
+    /// Does not scan a network.
+    #[arg(long, conflicts_with_all = ["input", "target", "config"])]
+    pub demo: bool,
+
     /// TOML file with client, authorization, and branding fields.
-    #[arg(long)]
-    pub config: PathBuf,
+    #[arg(long, required_unless_present = "demo")]
+    pub config: Option<PathBuf>,
 
     /// Where to write the PDF.
     #[arg(short, long)]
@@ -94,46 +99,37 @@ pub struct ReportArgs {
 }
 
 pub async fn execute(args: ReportArgs) -> Result<()> {
-    let mut config = config::load(&args.config, &args.overrides)?;
-    let scan = if let Some(input) = &args.input {
-        if args.target.is_some() {
-            log::warn!("--input is set, so --target is ignored and nothing is scanned");
-        }
-        model::load_scan_json(input)?
+    let (mut config, scan) = if args.demo {
+        (
+            config::parse_config(
+                include_str!("../../examples/demo-report.toml"),
+                std::path::Path::new("examples/demo-report.toml"),
+                &args.overrides,
+            )?,
+            model::parse_scan_export(include_str!("../../examples/demo-scan.json"))?,
+        )
     } else {
-        let Some(target) = args.target.clone() else {
-            bail!(
-                "Pass --input with a JSON scan export, or --target to scan and then build the report."
-            );
-        };
-        let completed = ScanJob {
-            target,
-            ports: args.ports.clone(),
-            top100: args.top100,
-            top1000: args.top1000,
-            concurrency: args.concurrency,
-            max_hosts: args.max_hosts,
-            ping_sweep: args.ping_sweep,
-            timeout: args.timeout,
-            ping_timeout: args.ping_timeout,
-            banners: args.banners,
-            vuln_check: args.vuln_check,
-            quiet: args.quiet,
-            fast_mode: args.fast_mode,
-        }
-        .run()
-        .await?;
-        if completed.skipped {
-            bail!("No hosts responded to the ping sweep, so the report was not built.");
-        }
-        model::LoadedScan {
-            info: completed.info,
-            results: completed.results,
-        }
+        let config_path = args.config.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Pass --config with the report TOML, or pass --demo for the sample report."
+            )
+        })?;
+        let config = config::load(config_path, &args.overrides)?;
+        let scan = load_or_scan(&args).await?;
+        (config, scan)
     };
-
     model::fill_report_id(&mut config, &scan.info);
     let report = model::assemble(&config, &scan.info, &scan.results)?;
+    if args.demo {
+        for row in &report.appendix {
+            if !is_documentation_host(&row.host) {
+                bail!(
+                    "Refusing to write the demo report because {} is outside 203.0.113.0/24.",
+                    row.host
+                );
+            }
+        }
+    }
     let bytes = pdf::render(&report)?;
     if let Some(parent) = args.output.parent() {
         if !parent.as_os_str().is_empty() {
@@ -151,6 +147,49 @@ pub async fn execute(args: ReportArgs) -> Result<()> {
         );
     }
     Ok(())
+}
+
+async fn load_or_scan(args: &ReportArgs) -> Result<model::LoadedScan> {
+    if let Some(input) = &args.input {
+        if args.target.is_some() {
+            log::warn!("--input is set, so --target is ignored and nothing is scanned");
+        }
+        return model::load_scan_json(input);
+    }
+    let Some(target) = args.target.clone() else {
+        bail!(
+            "Pass --input with a JSON scan export, or --target to scan and then build the report."
+        );
+    };
+    let completed = ScanJob {
+        target,
+        ports: args.ports.clone(),
+        top100: args.top100,
+        top1000: args.top1000,
+        concurrency: args.concurrency,
+        max_hosts: args.max_hosts,
+        ping_sweep: args.ping_sweep,
+        timeout: args.timeout,
+        ping_timeout: args.ping_timeout,
+        banners: args.banners,
+        vuln_check: args.vuln_check,
+        quiet: args.quiet,
+        fast_mode: args.fast_mode,
+    }
+    .run()
+    .await?;
+    if completed.skipped {
+        bail!("No hosts responded to the ping sweep, so the report was not built.");
+    }
+    Ok(model::LoadedScan {
+        info: completed.info,
+        results: completed.results,
+    })
+}
+
+fn is_documentation_host(host: &str) -> bool {
+    host.parse::<std::net::Ipv4Addr>()
+        .is_ok_and(|ip| ip.octets()[0] == 203 && ip.octets()[1] == 0 && ip.octets()[2] == 113)
 }
 
 #[cfg(test)]
@@ -257,8 +296,57 @@ signed_date = "2026-10-01"
             .contains("Monthly monitoring"));
         assert!(!report.config.rescan_offer.contains("{{"));
         assert!(!report.config.monitoring_offer.contains("{{"));
+        assert!(report.disclaimers.iter().any(|line| line.contains(
+            "deleted 14 days after report delivery, or within 3 business days on request"
+        )));
         let bytes = pdf::render(&report).unwrap();
         assert!(bytes.starts_with(b"%PDF"));
         assert!(bytes.len() > 5_000);
+    }
+
+    #[test]
+    fn demo_fixture_uses_only_documentation_addresses() {
+        let config = config::parse_config(
+            include_str!("../../examples/demo-report.toml"),
+            std::path::Path::new("examples/demo-report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap();
+        let scan = model::parse_scan_export(include_str!("../../examples/demo-scan.json")).unwrap();
+        let report = model::assemble(&config, &scan.info, &scan.results).unwrap();
+        assert!(report.config.insurance_appendix);
+        assert_eq!(report.grade.letter, 'F');
+        assert!(report.summary_sentence.contains('✖'));
+        assert!(report.top_actions.len() <= 3);
+        assert!(!report.top_actions.is_empty());
+        assert_eq!(
+            report.summary.vuln_db_date,
+            crate::vuln::bundled_last_updated()
+        );
+        assert!(is_documentation_host("203.0.113.10"));
+        assert!(!is_documentation_host("198.51.100.20"));
+        assert!(!report.appendix.is_empty());
+        for row in &report.appendix {
+            assert!(
+                is_documentation_host(&row.host),
+                "demo host {} is not in 203.0.113.0/24",
+                row.host
+            );
+        }
+        for asset in &report.config.assets {
+            assert!(
+                is_documentation_host(asset),
+                "demo asset {asset} is not in 203.0.113.0/24"
+            );
+        }
+        let redirect = report
+            .appendix
+            .iter()
+            .find(|row| row.port == 80)
+            .expect("demo scan includes port 80");
+        assert!(redirect.banner.contains("301"), "{}", redirect.banner);
+        let bytes = pdf::render(&report).unwrap();
+        assert!(bytes.starts_with(b"%PDF"));
+        assert!(bytes.windows(5).any(|window| window == b"%%EOF"));
     }
 }

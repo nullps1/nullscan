@@ -215,6 +215,8 @@ examples/output/
 !examples/sample-report.toml
 !examples/sample-report.pdf
 !examples/sample-logo.png
+!examples/demo-scan.json
+!examples/demo-report.toml
 
 # ==============================================================================
 # Development and Testing Artifacts

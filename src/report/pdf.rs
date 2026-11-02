@@ -30,7 +30,6 @@ struct Writer<'a> {
     logo: Option<(XObjectId, f32, f32)>,
     accent: (f32, f32, f32),
     report_id: String,
-    disclaimers: Vec<String>,
     page_w: f32,
     page_h: f32,
     left: f32,
@@ -79,13 +78,12 @@ pub fn render(model: &ReportModel) -> Result<Vec<u8>> {
         logo,
         accent: model.config.accent,
         report_id: model.config.report_id.clone(),
-        disclaimers: model.disclaimers.clone(),
         page_w,
         page_h,
         left,
         right: page_w - mm(16.0),
         content_top: page_h - mm(14.0),
-        content_bottom: mm(10.0) + 92.0,
+        content_bottom: mm(16.0),
         y: 0.0,
         ops: Vec::new(),
         pages: Vec::new(),
@@ -119,6 +117,7 @@ pub fn render(model: &ReportModel) -> Result<Vec<u8>> {
 impl<'a> Writer<'a> {
     fn write_report(&mut self, model: &ReportModel) {
         self.cover(model);
+        self.page_break();
         self.heading("Scope and authorization");
         self.scope_box(model);
         self.heading("Executive summary");
@@ -159,23 +158,24 @@ impl<'a> Writer<'a> {
             true,
             TEXT,
         );
-        self.gap(6.0);
-        self.field("Scan date", &model.summary.window_end);
-        self.field(
-            "Report",
-            &format!(
-                "{}  (version {})",
-                model.config.report_id, model.config.report_version
-            ),
-        );
-        self.field("Prepared by", &model.config.prepared_by);
-        self.field("Delivery date", &model.config.delivery_date);
-        self.field("Contact", &contact_line(model));
         self.gap(8.0);
         self.badge(&model.grade);
         self.gap(4.0);
-        self.paragraph(model.grade.meaning, 11.0, false, TEXT);
+        self.paragraph(&model.summary_sentence, 11.0, false, TEXT);
         self.gap(6.0);
+        self.paragraph("Top 3 items", 12.0, true, TEXT);
+        if model.fix_first.is_empty() {
+            self.paragraph(
+                "Nothing above informational. No items to fix first.",
+                10.5,
+                false,
+                TEXT,
+            );
+        } else {
+            for (index, action) in model.top_actions.iter().take(3).enumerate() {
+                self.paragraph(&format!("{}. {action}", index + 1), 10.5, false, TEXT);
+            }
+        }
     }
 
     fn scope_box(&mut self, model: &ReportModel) {
@@ -230,10 +230,7 @@ impl<'a> Writer<'a> {
         self.field("Prepared by", &model.config.prepared_by);
         self.field("Delivery date", &model.config.delivery_date);
         self.gap(4.0);
-        self.note(&format!(
-            "Times are shown in America/Denver. Accent {} is decoration only and does not encode severity.",
-            model.config.accent_hex
-        ));
+        self.note("Times are shown in America/Denver.");
     }
 
     fn summary(&mut self, model: &ReportModel) {
@@ -251,15 +248,6 @@ impl<'a> Writer<'a> {
             false,
             TEXT,
         );
-        self.gap(4.0);
-        self.paragraph("Top things to do", 12.0, true, TEXT);
-        if model.top_actions.is_empty() {
-            self.paragraph("None.", 10.0, false, TEXT);
-        } else {
-            for (index, action) in model.top_actions.iter().enumerate() {
-                self.paragraph(&format!("{}. {action}", index + 1), 10.0, false, TEXT);
-            }
-        }
     }
 
     fn grade_table(&mut self, model: &ReportModel) {
@@ -410,7 +398,6 @@ impl<'a> Writer<'a> {
             "End-of-life software is flagged only when the banner matches a short editable list in the scanner. A service can be out of date without that list saying so.",
             "\"Known mail host\" means the address was listed in the report config. The scanner does not know who a company's mail provider is. It also does not log into mail servers, so it cannot tell whether SMTP login on ports 25 and 587 is encrypted. Plain POP (110) and IMAP (143) are treated as unencrypted mail login.",
             "\"SSH world-open\" means port 22, or a service named SSH, accepted a connection during this external scan. We cannot see a firewall that we did not pass.",
-            "The retention period in the disclaimer is the number in the report config. Treat it as a placeholder until counsel confirms the policy.",
         ] {
             self.paragraph(&format!("• {line}"), 10.0, false, TEXT);
         }
@@ -422,18 +409,8 @@ impl<'a> Writer<'a> {
     }
 
     fn next_steps(&mut self, model: &ReportModel) {
-        self.paragraph(
-            &format!("Rescan: {}", model.config.rescan_offer),
-            10.5,
-            false,
-            TEXT,
-        );
-        self.paragraph(
-            &format!("Monitoring: {}", model.config.monitoring_offer),
-            10.5,
-            false,
-            TEXT,
-        );
+        self.offer_line("Rescan", &model.config.rescan_offer);
+        self.offer_line("Monitoring", &model.config.monitoring_offer);
         self.paragraph(
             &format!(
                 "Help fixing: {}, {}, {}. weeksitsolutions.com",
@@ -571,14 +548,70 @@ impl<'a> Writer<'a> {
         );
         self.gap(3.0);
         self.paragraph("Not legal advice.", 10.5, true, TEXT);
-        self.gap(8.0);
-        self.paragraph(&model.config.prepared_by, 10.5, false, TEXT);
+        self.signature_block(model);
+    }
+
+    fn signature_block(&mut self, model: &ReportModel) {
+        self.gap(10.0);
+        self.paragraph("Authorized signature", 11.0, true, TEXT);
+        self.gap(18.0);
+        self.signature_rule();
         self.paragraph(
-            "Weeks IT Solutions · weeksitsolutions.com",
-            10.0,
+            &blank(&model.config.prepared_by, "Preparer"),
+            10.5,
             false,
-            MUTED,
+            TEXT,
         );
+        self.paragraph("Weeks IT Solutions", 10.0, false, MUTED);
+        self.paragraph("weeksitsolutions.com", 10.0, false, MUTED);
+        self.paragraph(
+            &format!(
+                "Date: {}",
+                blank(&model.config.delivery_date, "not recorded")
+            ),
+            10.5,
+            false,
+            TEXT,
+        );
+    }
+
+    fn signature_rule(&mut self) {
+        self.ensure(8.0);
+        let y = self.y;
+        let end = (self.left + 220.0).min(self.right);
+        self.ops.push(Op::SetOutlineColor {
+            col: rgb(TEXT.0, TEXT.1, TEXT.2),
+        });
+        self.ops.push(Op::SetOutlineThickness { pt: Pt(0.8) });
+        self.ops.push(Op::DrawLine {
+            line: Line {
+                points: vec![
+                    LinePoint {
+                        p: Point {
+                            x: Pt(self.left),
+                            y: Pt(y),
+                        },
+                        bezier: false,
+                    },
+                    LinePoint {
+                        p: Point {
+                            x: Pt(end),
+                            y: Pt(y),
+                        },
+                        bezier: false,
+                    },
+                ],
+                is_closed: false,
+            },
+        });
+        self.y -= 8.0;
+    }
+
+    fn offer_line(&mut self, label: &str, value: &str) {
+        if value.trim().is_empty() {
+            return;
+        }
+        self.paragraph(&format!("{label}: {value}"), 10.5, false, TEXT);
     }
 
     fn badge(&mut self, grade: &Grade) {
@@ -858,9 +891,7 @@ impl<'a> Writer<'a> {
                     left: self.left,
                     right: self.right,
                     content_bottom: self.content_bottom,
-                    disclaimers: &self.disclaimers,
                     report_id: &self.report_id,
-                    font: self.regular,
                     font_id: self.regular_id.clone(),
                 },
                 index + 1,
@@ -920,10 +951,13 @@ struct FooterCtx<'a> {
     left: f32,
     right: f32,
     content_bottom: f32,
-    disclaimers: &'a [String],
     report_id: &'a str,
-    font: &'a ParsedFont,
     font_id: printpdf::FontId,
+}
+
+/// The only line of text in the page footer.
+pub fn footer_line(report_id: &str, page: usize, total: usize) -> String {
+    format!("Weeks IT Solutions · Confidential · {report_id} · Page {page} of {total}")
 }
 
 fn footer(ctx: &FooterCtx<'_>, page: usize, total: usize) -> Vec<Op> {
@@ -932,7 +966,7 @@ fn footer(ctx: &FooterCtx<'_>, page: usize, total: usize) -> Vec<Op> {
         col: rgb(RULE.0, RULE.1, RULE.2),
     });
     ops.push(Op::SetOutlineThickness { pt: Pt(0.4) });
-    let rule_y = ctx.content_bottom - 6.0;
+    let rule_y = ctx.content_bottom - 4.0;
     ops.push(Op::DrawLine {
         line: Line {
             points: vec![
@@ -954,34 +988,14 @@ fn footer(ctx: &FooterCtx<'_>, page: usize, total: usize) -> Vec<Op> {
             is_closed: false,
         },
     });
-    let size = 6.3;
-    let mut y = rule_y - 3.0;
-    let width = ctx.right - ctx.left;
-    for disclaimer in ctx.disclaimers {
-        for line in wrap(ctx.font, disclaimer, size, width) {
-            y -= size * 1.2;
-            ops.extend(text_ops(
-                &line,
-                ctx.left,
-                y,
-                size,
-                ctx.font_id.clone(),
-                MUTED,
-            ));
-        }
-    }
-    y -= size * 1.35;
-    let brand = format!(
-        "Weeks IT Solutions · Confidential · Page {page} of {total} · Report {}",
-        ctx.report_id
-    );
+    let line = footer_line(ctx.report_id, page, total);
     ops.extend(text_ops(
-        &brand,
+        &line,
         ctx.left,
-        y,
+        rule_y - 12.0,
         8.0,
         ctx.font_id.clone(),
-        TEXT,
+        MUTED,
     ));
     ops
 }
@@ -1089,15 +1103,6 @@ fn blank(value: &str, fallback: &str) -> String {
     } else {
         value.to_string()
     }
-}
-
-fn contact_line(model: &ReportModel) -> String {
-    format!(
-        "{} · {} · {}",
-        blank(&model.config.contact_name, "Noah Weeks"),
-        blank(&model.config.contact_email, "noah@weeksitsolutions.com"),
-        blank(&model.config.contact_phone, "phone not provided")
-    )
 }
 
 fn count_line(counts: &SeverityCounts) -> String {
@@ -1211,5 +1216,16 @@ mod tests {
     #[test]
     fn dejavu_contains_the_shape_icons() {
         embedded_font_has_shapes().unwrap();
+    }
+
+    #[test]
+    fn footer_is_a_single_line() {
+        let mut warnings = Vec::new();
+        let font = ParsedFont::from_bytes(SANS, 0, &mut warnings).unwrap();
+        let line = footer_line("NS-DEMO-0001", 2, 6);
+        assert_eq!(line.lines().count(), 1);
+        assert!(!line.contains('\n'));
+        let width = mm(210.0) - mm(32.0);
+        assert_eq!(wrap(&font, &line, 8.0, width).len(), 1, "{line}");
     }
 }
