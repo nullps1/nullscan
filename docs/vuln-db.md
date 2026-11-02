@@ -14,7 +14,7 @@ A match means the banner names a product that NVD lists as vulnerable for that C
 Generated rows come from two public sources:
 
 1. [CISA Known Exploited Vulnerabilities catalog](https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json). `last_updated` is the catalog's `dateReleased` date.
-2. [NVD CVE API 2.0](https://services.nvd.nist.gov/rest/json/cves/2.0). Each query uses `virtualMatchString` for that product's vulnerable CPE, then keeps the CVSS score, published date, and English description. CISA KEV entries for the same products are included even when they fall outside the newest handful of NVD rows.
+2. [NVD CVE API 2.0](https://services.nvd.nist.gov/rest/json/cves/2.0). Each query uses `virtualMatchString` for that product's vulnerable CPE, then keeps the CVSS score, published date, and English description. A CPE matches only when the product component ends at the next separator, so `oracle:mysql` does not include `oracle:mysql_shell`. NVD also files some MySQL Shell, Connector, and Workbench advisories under `oracle:mysql`. Those descriptions are dropped, so a MySQL server banner does not inherit them. CISA KEV entries for the same products are included even when they fall outside the newest handful of NVD rows.
 
 NVD allows a few requests at a time without an API key. The refresh script waits between calls. Set `NVD_API_KEY` if you have one.
 

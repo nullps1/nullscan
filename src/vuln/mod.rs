@@ -446,6 +446,28 @@ mod tests {
     }
 
     #[test]
+    fn mysql_pattern_does_not_match_mysql_shell() {
+        let value: serde_json::Value =
+            serde_json::from_str(include_str!("../../vuln_db.json")).unwrap();
+        for pattern in value["patterns"].as_array().unwrap() {
+            if pattern["pattern"].as_str() != Some("contains:mysql") {
+                continue;
+            }
+            for vuln in pattern["vulnerabilities"].as_array().unwrap() {
+                let cve = vuln["cve"].as_str().unwrap_or("");
+                let description = vuln["description"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                assert!(
+                    !description.contains("mysql shell"),
+                    "{cve} is MySQL Shell and must not sit on the server banner pattern"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn bundled_database_records_a_current_date() {
         let updated = bundled_last_updated();
         assert_ne!(updated, "not recorded");

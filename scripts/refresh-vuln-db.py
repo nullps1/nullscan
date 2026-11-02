@@ -44,6 +44,8 @@ USER_AGENT = "nullscan-vuln-refresh/1.0 (+https://github.com/nullps1/nullscan)"
 
 # cpe: NVD vendor:product prefix. virtualMatchString is this prefix plus ":*:*:*:*:*:*:*:*".
 # A row is kept only when NVD marks that CPE vulnerable, so a passing mention is not enough.
+# The product component must end at the next separator (`oracle:mysql` is not `oracle:mysql_shell`).
+# NVD still files some sibling products under the server CPE. Those descriptions are dropped.
 # pattern / service_type: vuln_db.json fields. Several CPEs may share one pattern.
 PRODUCTS = [
     {
@@ -108,6 +110,12 @@ PRODUCTS = [
     },
 ]
 
+# Phrases that mean the CVE is a sibling product, not the banner this pattern matches.
+# NVD's vulnerable CPE for these is still `cpe:2.3:a:oracle:mysql`.
+DESCRIPTION_EXCLUDES = {
+    "contains:mysql": ("mysql shell", "mysql connector", "mysql workbench"),
+}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -140,7 +148,7 @@ def main() -> int:
         print(f"Querying NVD CPE {product['cpe']} ({product['name']})...")
         payload = nvd_cpe(product["cpe"], args.sleep)
         added = 0
-        for record in newest_matches(payload, product["cpe"]):
+        for record in newest_matches(payload, product["cpe"], product["pattern"]):
             selected[record["cve"]] = {
                 **record,
                 "pattern": product["pattern"],
@@ -175,6 +183,9 @@ def main() -> int:
             continue
         record = record_from_nvd(cve)
         if record is None or record["published"] < PUBLISHED_FLOOR:
+            continue
+        if not description_fits_pattern(record["description"], pattern):
+            print(f"    skipped {cve_id}: description is not the {pattern} product")
             continue
         selected[cve_id] = {
             **record,
@@ -241,7 +252,7 @@ def kev_route(entry: dict) -> tuple[str, str] | None:
     return None
 
 
-def newest_matches(payload: dict, cpe_prefix: str) -> list[dict]:
+def newest_matches(payload: dict, cpe_prefix: str, pattern: str) -> list[dict]:
     rows = []
     for item in payload.get("vulnerabilities", []):
         cve = item.get("cve") or {}
@@ -249,6 +260,8 @@ def newest_matches(payload: dict, cpe_prefix: str) -> list[dict]:
             continue
         record = record_from_nvd(cve)
         if record is None or record["published"] < PUBLISHED_FLOOR:
+            continue
+        if not description_fits_pattern(record["description"], pattern):
             continue
         rows.append(record)
     rows.sort(key=lambda row: row["published"], reverse=True)
@@ -271,11 +284,28 @@ def cap_per_pattern(selected: dict[str, dict]) -> dict[str, dict]:
     return kept
 
 
+def description_fits_pattern(description: str, pattern: str) -> bool:
+    """False when the prose names a sibling product filed under this CPE."""
+    text = description.lower()
+    return not any(phrase in text for phrase in DESCRIPTION_EXCLUDES.get(pattern, ()))
+
+
+def cpe_product_match(criteria: str, prefix: str) -> bool:
+    """True when `criteria` is exactly this CPE product, not a longer product name.
+
+    `cpe:2.3:a:oracle:mysql` must not match `cpe:2.3:a:oracle:mysql_shell`.
+    The next character has to be the component separator.
+    """
+    if criteria == prefix:
+        return True
+    return criteria.startswith(prefix + ":")
+
+
 def cpe_is_vulnerable(cve: dict, prefix: str) -> bool:
     def walk(node: dict) -> bool:
         for match in node.get("cpeMatch") or []:
             criteria = str(match.get("criteria") or "")
-            if criteria.startswith(prefix) and match.get("vulnerable", True):
+            if cpe_product_match(criteria, prefix) and match.get("vulnerable", True):
                 return True
         return any(walk(child) for child in node.get("children") or [])
 

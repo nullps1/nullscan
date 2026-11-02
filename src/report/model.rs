@@ -483,14 +483,13 @@ fn usable_cve_date(value: &str) -> Option<String> {
     if trimmed.is_empty() {
         return None;
     }
-    let token = trimmed.split_whitespace().next().unwrap_or(trimmed);
-    if matches!(
-        token.to_ascii_lowercase().as_str(),
-        "not" | "none" | "n/a" | "na" | "unknown" | "unrecorded"
-    ) {
-        return None;
+    // Dates such as "November 2, 2026" are accepted by the config parser.
+    // Try the whole string before the first word, or "November" is all that remains.
+    if super::config::parse_calendar_date(trimmed).is_some() {
+        return Some(trimmed.to_string());
     }
-    if super::config::parse_calendar_date(token).is_some() {
+    let token = trimmed.split_whitespace().next().unwrap_or(trimmed);
+    if token != trimmed && super::config::parse_calendar_date(token).is_some() {
         return Some(token.to_string());
     }
     None
@@ -870,5 +869,9 @@ known_mail_hosts = ["198.51.100.20"]
         info.insert("vuln_db_updated".to_string(), "2020-01-01".to_string());
         let model = assemble(&dated, &info, &[]).unwrap();
         assert_eq!(model.summary.vuln_db_date, "2026-10-30");
+
+        dated.cve_db_date = "November 2, 2026".to_string();
+        let model = assemble(&dated, &info, &[]).unwrap();
+        assert_eq!(model.summary.vuln_db_date, "November 2, 2026");
     }
 }

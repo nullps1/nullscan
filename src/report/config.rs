@@ -679,5 +679,21 @@ delivery_date = "  November 2, 2026  "
         };
         let config = parse_config(&good, Path::new("report.toml"), &overrides).unwrap();
         assert_eq!(config.cve_db_date, "2026-11-02");
+
+        let written = format!("{base}[report]\ncve_db_date = \"November 2, 2026\"\n");
+        let config = parse_config(
+            &written,
+            Path::new("report.toml"),
+            &ReportOverrides::default(),
+        )
+        .unwrap();
+        assert_eq!(config.cve_db_date, "November 2, 2026");
+
+        let overrides = ReportOverrides {
+            cve_db_date: Some("November 2, 2026".to_string()),
+            ..ReportOverrides::default()
+        };
+        let config = parse_config(&good, Path::new("report.toml"), &overrides).unwrap();
+        assert_eq!(config.cve_db_date, "November 2, 2026");
     }
 }
